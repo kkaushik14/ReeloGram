@@ -30,6 +30,9 @@ test("email syntax, temporary domains, null MX and transient DNS failures are di
     "a@mailinator.com",
     "a@sub.mailinator.com",
     "a@10minutemail.com",
+    "check@digeros.com",
+    " CHECK@DIGEROS.COM ",
+    "check@sub.digeros.com",
   ])
     await assert.rejects(
       validateEmailAddress(address, mx),
@@ -50,6 +53,34 @@ test("email syntax, temporary domains, null MX and transient DNS failures are di
       throw Object.assign(Error(), { code: "ETIMEOUT" });
     }),
     (error) => error.status === 503,
+  );
+});
+test("newly listed disposable domains are rejected before DNS, including parent addresses", async () => {
+  let queries = 0;
+  const mx = async () => {
+    queries++;
+    return [{ exchange: "mx.example.org", priority: 10 }];
+  };
+  await assert.rejects(
+    validateEmailAddress("regression@digeros.com", mx),
+    /Temporary email/,
+  );
+  assert.equal(queries, 0);
+  await assert.rejects(
+    requestedParent(
+      { parentEmail: "parent@digeros.com", parentManaged: true },
+      new Date("2018-04-12"),
+      "child@example.org",
+    ),
+    /Parent email:.*Temporary email/,
+  );
+  assert.equal(
+    await validateEmailAddress("person@notdigeros.com", mx),
+    "person@notdigeros.com",
+  );
+  assert.equal(
+    await validateEmailAddress("person@digeros.com.example.org", mx),
+    "person@digeros.com.example.org",
   );
 });
 test("parent management respects the exact thirteenth birthday and confirmation boundaries", async () => {

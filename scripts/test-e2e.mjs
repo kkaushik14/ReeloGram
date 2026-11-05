@@ -264,6 +264,35 @@ try {
   assert.ok(Array.isArray(initialFeed.videos));
   if (!configuredDatabase)
     assert.deepEqual(initialFeed, { videos: [], nextCursor: null, total: 0 });
+  const disposableEmail = `regression-${runId}@digeros.com`;
+  const mailBeforeRejection = mail.messages.length;
+  for (const address of [
+    disposableEmail,
+    `regression-${runId}@sub.digeros.com`,
+  ]) {
+    const rejected = await request("/api/auth/identify", {
+      anonymous: true,
+      data: { email: address },
+      expected: 400,
+    });
+    assert.match((await rejected.json()).error, /Temporary email/);
+  }
+  const rejectedSignup = await request("/api/auth/register", {
+    anonymous: true,
+    data: {
+      email: disposableEmail,
+      password,
+      name: "Disposable Regression",
+      dateOfBirth: "1998-01-23",
+    },
+    expected: 400,
+  });
+  assert.match((await rejectedSignup.json()).error, /Temporary email/);
+  assert.equal(
+    mail.messages.length,
+    mailBeforeRejection,
+    "Rejected signup must not send any email",
+  );
   registrationAttempted = true;
   const attempts = await Promise.all(
     [email, email.toUpperCase()].map((address) =>
@@ -304,6 +333,13 @@ try {
     .createConnection(databaseUri, { serverSelectionTimeoutMS: 10000 })
     .asPromise();
   try {
+    assert.equal(
+      await connection
+        .collection("users")
+        .countDocuments({ email: disposableEmail }),
+      0,
+      "Direct signup must not persist a blocked address",
+    );
     const stored = await connection.collection("users").findOne({ email });
     assert.equal(
       await connection.collection("users").countDocuments({ email }),

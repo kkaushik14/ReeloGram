@@ -5,6 +5,8 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/update-email-blocklist.mjs --fallback",
+    "email:update-blocklist": "node scripts/update-email-blocklist.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

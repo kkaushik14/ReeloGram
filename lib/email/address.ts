@@ -1,5 +1,6 @@
 import { Resolver } from "node:dns/promises";
 import MailChecker from "mailchecker";
+import { isSupplementaryDisposableDomain } from "./disposable.ts";
 import { parseEmail } from "../auth/validation.ts";
 import { AuthRequestError } from "../security/request.ts";
 
@@ -11,11 +12,11 @@ export async function validateEmailAddress(
 ) {
   const email = parseEmail(value);
   if (!email) throw new AuthRequestError("Enter a valid email address.");
-  if (!MailChecker.isValid(email))
+  const domain = email.split("@")[1];
+  if (!MailChecker.isValid(email) || isSupplementaryDisposableDomain(domain))
     throw new AuthRequestError(
       "Use a permanent email address. Temporary email services are not supported.",
     );
-  const domain = email.split("@")[1];
   // Reserved fixtures are accepted only by the isolated development test server.
   if (
     process.env.NODE_ENV === "development" &&
