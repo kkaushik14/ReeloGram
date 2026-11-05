@@ -59,7 +59,7 @@ let mail;
 
 async function request(
   path,
-  { data, form, anonymous = false, expected = 200, method } = {},
+  { data, form, multipart, anonymous = false, expected = 200, method } = {},
 ) {
   const headers = {};
   if (!anonymous)
@@ -69,13 +69,13 @@ async function request(
   if (data) headers["Content-Type"] = "application/json";
   if (form) headers["Content-Type"] = "application/x-www-form-urlencoded";
   const response = await fetch(base + path, {
-    method: method ?? (data || form ? "POST" : "GET"),
+    method: method ?? (data || form || multipart ? "POST" : "GET"),
     headers,
     body: data
       ? JSON.stringify(data)
       : form
         ? new URLSearchParams(form)
-        : undefined,
+        : multipart,
     redirect: "manual",
     signal: AbortSignal.timeout(30000),
   });
@@ -203,6 +203,8 @@ try {
   await request("/register");
   await request("/login");
   await request("/api/imagekit-auth", { anonymous: true, expected: 401 });
+  await request("/api/account",{anonymous:true,expected:401});
+  await request("/api/account/avatar",{anonymous:true,method:"DELETE",expected:401});
   await request("/api/videos", {
     anonymous: true,
     data: { title: "Unauthorized" },
@@ -309,6 +311,16 @@ try {
   assert.equal(session.user.email, email);
   assert.equal(session.user.name, "Video Creator");
   assert.ok(session.user.id);
+  const privateProfile=await request("/api/account");
+  assert.match(privateProfile.headers.get("cache-control"),/no-store/);
+  const profile=await privateProfile.json();
+  assert.equal(profile.name,"Video Creator");assert.equal(profile.email,email);assert.equal(profile.dateOfBirth,"1998-01-23");
+  assert.ok(!("password" in profile));assert.ok(!("imageFileId" in profile));
+  await request("/api/account",{method:"PATCH",data:{name:"Changed",dateOfBirth:"2000-01-01",email:otherEmail},expected:405});
+  assert.equal((await(await request("/api/account?userId=000000000000000000000000")).json()).email,email);
+  await request("/api/account/avatar",{data:{image:"https://untrusted.invalid/avatar.svg"},expected:415});
+  const invalidPhoto=new FormData();invalidPhoto.set("file",new Blob(["not a real image"],{type:"image/png"}),"photo.png");
+  await request("/api/account/avatar",{multipart:invalidPhoto,expected:400});
   await request("/email-logo.png", { anonymous: true });
   await assertAuthRedirect("/login");
   await assertAuthRedirect("/register");
@@ -374,6 +386,26 @@ try {
       privateKey: process.env.REELOGRAM_PRIVATE_KEY,
       urlEndpoint: process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
     });
+    const avatarBody=new FormData();
+    const {default:sharp}=await import("sharp");
+    const avatarBytes=await sharp({create:{width:32,height:32,channels:3,background:"#6A4D77"}}).png().toBuffer();
+    avatarBody.set("file",new Blob([avatarBytes],{type:"image/png"}),"profile.png");
+    await request("/api/account/avatar",{multipart:avatarBody});
+    const avatarProfile=await(await request("/api/account")).json();
+    assert.ok(avatarProfile.image.startsWith(process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT));
+    const avatarDb=await mongoose.createConnection(databaseUri).asPromise();
+    let avatarId;
+    try{avatarId=(await avatarDb.collection("users").findOne({email})).imageFileId;}finally{await avatarDb.close();}
+    uploaded.push(avatarId);
+    assert.equal((await mediaLibrary.getFileDetails(avatarId)).mime,"image/webp");
+    assert.equal((await(await request("/api/auth/session")).json()).user.image,avatarProfile.image);
+    await request("/api/account/avatar",{method:"DELETE"});
+    assert.equal((await(await request("/api/account")).json()).image,null);
+    const cleanupDeadline=Date.now()+20000;
+    let cleaned=false;
+    while(Date.now()<cleanupDeadline){try{await mediaLibrary.getFileDetails(avatarId);}catch(error){if(error.$ResponseMetadata?.statusCode===404){cleaned=true;break;}throw error;}await new Promise(resolve=>setTimeout(resolve,200));}
+    assert.ok(cleaned,"Removed profile photos must be cleaned from ImageKit");
+    console.log("Private read-only profile, normalized ImageKit photo, session refresh and photo removal passed.");
     let thumbnailFile;
     const savedVideos = [];
     const videoFixture = fixtures.find((fixture) =>
@@ -841,6 +873,19 @@ try {
     );
   }
 
+  if(liveUploads){
+    const prior=[...cookies];
+    await signIn({email:otherEmail,password});
+    const cookie=[...cookies].map(([name,value])=>`${name}=${value}`).join("; ");
+    const quota=await Promise.all(Array.from({length:21},()=>fetch(base+"/api/imagekit-auth",{headers:{Cookie:cookie}})));
+    assert.equal(quota.filter(response=>response.status===200).length,20);
+    assert.equal(quota.filter(response=>response.status===429).length,1);
+    assert.ok(Number(quota.find(response=>response.status===429).headers.get("retry-after"))>0);
+    checks+=21;
+    cookies.clear();for(const [key,value]of prior)cookies.set(key,value);
+    console.log("Upload authorization quota is atomic and returns 429 with Retry-After.");
+  }
+
   const attemptsAtOnce = await Promise.all(
     Array.from({ length: 30 }, () =>
       fetch(base + "/api/auth/identify", {
@@ -981,6 +1026,7 @@ try {
       "Password reset invalidates previous sessions",
     );
     await request("/api/imagekit-auth", { expected: 401 });
+    await request("/api/account",{expected:401});
     await completeSignIn(resetEmail, resetHandoff.signInToken);
     assert.equal(
       (await (await request("/api/auth/session")).json()).user.email,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Aperture, ArrowUpRight } from "lucide-react";
 import CookieSettingsButton from "./CookieSettingsButton";
+import AccountLink from "./AccountLink";
 export default function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -8,7 +9,7 @@ export default function SiteFooter() {
         <div className="footer-intro">
           <Link className="footer-brand" href="/" aria-label="ReeloGram home">
             <Aperture size={28} />
-            <strong>ReeloGram.</strong>
+            <strong className="brand-wordmark">ReeloGram.</strong>
           </Link>
           <p>
             Good moments deserve
@@ -28,7 +29,8 @@ export default function SiteFooter() {
         <nav aria-label="Footer support">
           <h2>Make yourself at home</h2>
           <Link href="/help">Help & answers</Link>
-          <Link href="/login">Your account</Link>
+          <AccountLink href="/profile">Your profile</AccountLink>
+          <AccountLink href="/settings">Settings</AccountLink>
           <a
             href="https://github.com/kkaushik14/ReeloGram/issues"
             target="_blank"
@@ -53,7 +55,7 @@ export default function SiteFooter() {
       </div>
       <div className="footer-bottom">
         <span>
-          © {new Date().getFullYear()} <strong>ReeloGram</strong>
+          © {new Date().getFullYear()} <strong className="brand-wordmark">ReeloGram</strong>
         </span>
         <span>Made for a fresh perspective.</span>
         <a href="#main">Back to top ↑</a>

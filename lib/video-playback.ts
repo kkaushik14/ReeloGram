@@ -20,6 +20,7 @@ export type PlaybackEnvironment = {
   memory?: number;
   cores?: number;
   dpr?: number;
+  quality?: "auto"|"high"|"saver";
 };
 export type VideoDimensions = { width?: number; height?: number };
 
@@ -38,7 +39,7 @@ export function selectVideoCap(
   const { saveData, effectiveType, downlink, memory, cores } = environment;
   let cap: number = VIDEO_PLAYBACK.roleCaps[role];
   if (
-    saveData ||
+    saveData || environment.quality === "saver" ||
     (memory !== undefined && memory <= 2) ||
     (cores !== undefined && cores <= 2)
   )
@@ -51,7 +52,7 @@ export function selectVideoCap(
   if (effectiveType === "slow-2g" || effectiveType === "2g")
     cap = Math.min(cap, 240);
   else if (effectiveType === "3g") cap = Math.min(cap, 480);
-  if (downlink !== undefined && downlink > 0) {
+  if (environment.quality !== "high" && downlink !== undefined && downlink > 0) {
     if (downlink < 0.7) cap = Math.min(cap, 240);
     else if (downlink < 1.5) cap = Math.min(cap, 360);
     else if (downlink < 4) cap = Math.min(cap, 720);
@@ -64,7 +65,7 @@ export function selectVideoCap(
       : renderedHeight;
   const needed = Math.max(
     240,
-    fittedHeight * Math.min(environment.dpr ?? 1, 2),
+    fittedHeight * Math.min(environment.quality === "high" ? Math.max(environment.dpr??1,2) : environment.dpr??1, 2),
   );
   cap = Math.min(
     cap,

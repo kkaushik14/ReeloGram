@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { AccountSkeleton } from "./LoadingState";
 import SiteFooter from "./SiteFooter";
 import UploaderBadge from "./UploaderBadge";
+import {useBrowserPreferences} from "./useBrowserPreferences";
+import AccountLink from "./AccountLink";
 import { signOut, useSession } from "next-auth/react";
 import {
   Aperture,
@@ -20,6 +22,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Clapperboard,
+  UserRound,
+  Settings,
 } from "lucide-react";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null);
@@ -28,7 +32,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const path = usePathname();
   const { data: session, status } = useSession();
-  const [dark, setDark] = useState(false);
+  const {preferences,save,ready:preferencesReady}=useBrowserPreferences();
+  const dark=preferences.theme==="dark";
   const [menu, setMenu] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -78,14 +83,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [menu, mobile]);
   useEffect(() => {
-    setCollapsed(localStorage.getItem("reelogram-sidebar") === "collapsed");
+    try{setCollapsed(localStorage.getItem("reelogram-sidebar") === "collapsed");}catch{}
   }, []);
   function toggleSidebar() {
     setCollapsed((value) => {
-      localStorage.setItem(
+      try{localStorage.setItem(
         "reelogram-sidebar",
         value ? "expanded" : "collapsed",
-      );
+      );}catch{}
       return !value;
     });
   }
@@ -100,15 +105,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => query.removeEventListener("change", sync);
   }, []);
   useEffect(() => {
-    const saved = localStorage.getItem("reelogram-theme") === "dark";
-    setDark(saved);
-    document.documentElement.dataset.theme = saved ? "dark" : "light";
-  }, []);
+    if(preferencesReady)document.documentElement.dataset.theme=preferences.theme;
+  }, [preferencesReady,preferences.theme]);
   function theme() {
-    const value = !dark;
-    setDark(value);
-    document.documentElement.dataset.theme = value ? "dark" : "light";
-    localStorage.setItem("reelogram-theme", value ? "dark" : "light");
+    save({...preferences,theme:dark?"light":"dark"});
   }
   if (
     ["/login", "/register", "/forgot-password", "/reset-password"].includes(
@@ -125,6 +125,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/reels", label: "Reels", icon: Clapperboard },
     { href: "/my-videos", label: "Your videos", icon: Film },
     { href: "/upload", label: "Upload a video", icon: Plus },
+    { href: "/profile", label: "Your profile", icon: UserRound },
+    { href: "/settings", label: "Settings", icon: Settings },
   ];
   return (
     <div className={`app ${collapsed ? "sidebar-collapsed" : ""}`}>
@@ -148,7 +150,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Aperture size={25} />
             </span>
             <span className="brand-name">
-              ReeloGram<span className="brand-dot">.</span>
+              <span className="brand-wordmark">ReeloGram</span><span className="brand-dot">.</span>
             </span>
           </Link>
           <button
@@ -166,8 +168,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         <nav aria-label="Main navigation">
-          {nav.map(({ href, label, icon: Icon }) => (
-            <Link
+          {nav.map(({ href, label, icon: Icon }) => {
+            const NavLink=href==="/profile"||href==="/settings"?AccountLink:Link;
+            return <NavLink
               key={href}
               href={href}
               aria-label={label}
@@ -181,8 +184,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {label}
               </span>
               {path === href && <span className="nav-mark" />}
-            </Link>
-          ))}
+            </NavLink>;
+          })}
         </nav>
         <div className="sidebar-note">
           <span className="small-icon">
@@ -199,7 +202,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <AccountSkeleton />
             ) : session ? (
               <>
-                <UploaderBadge
+                <AccountLink href="/profile" aria-label="Your profile" onClick={()=>setMenu(false)}><UploaderBadge
                   uploader={{
                     id: session.user.id,
                     name:
@@ -208,7 +211,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       "Your account",
                     image: session.user.image || undefined,
                   }}
-                />
+                /></AccountLink>
                 <button
                   className="mobile-sign-out"
                   onClick={() => signOut({ callbackUrl: "/" })}
@@ -242,7 +245,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </button>
           <div className="sidebar-foot">
-            © {new Date().getFullYear()} ReeloGram
+            © {new Date().getFullYear()} <strong className="brand-wordmark">ReeloGram</strong>
           </div>
         </div>
       </aside>
@@ -266,7 +269,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMenu(false)}
           >
             <Aperture size={23} />
-            <strong>ReeloGram</strong>
+            <strong className="brand-wordmark">ReeloGram</strong>
           </Link>
           <button
             ref={menuButton}
@@ -286,7 +289,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <AccountSkeleton />
             ) : session ? (
               <>
-                <UploaderBadge
+                <AccountLink href="/profile" aria-label="Your profile"><UploaderBadge
                   uploader={{
                     id: session.user.id,
                     name:
@@ -295,7 +298,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       "Your account",
                     image: session.user.image || undefined,
                   }}
-                />
+                /></AccountLink>
                 <button
                   className="icon-button"
                   aria-label="Sign out"

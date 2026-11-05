@@ -2,6 +2,7 @@
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -15,7 +16,8 @@
     "videos:prepare": "node --experimental-strip-types scripts/prepare-videos.mjs",
     "videos:archive-imports": "node scripts/archive-feed-imports.mjs",
     "email:retry": "node --experimental-strip-types scripts/retry-emails.mjs",
-    "test:email": "node --experimental-strip-types scripts/test-email-service.mjs"
+    "test:email": "node --experimental-strip-types scripts/test-email-service.mjs",
+    "media:retry": "node --experimental-strip-types scripts/retry-avatar-cleanup.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -29,6 +31,7 @@
     "nodemailer": "^10.3.1",
     "react": "19.0.9",
     "react-dom": "19.0.9",
+    "sharp": "0.35.5",
     "three": "0.187.0"
   },
   "devDependencies": {

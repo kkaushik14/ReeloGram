@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import mongoose, { type FilterQuery } from "mongoose";
 import { authOptions } from "@/lib/auth-opt";
 import { connectToDatabase } from "@/lib/db";
+import { limitRequest, rateLimitResponse } from "@/lib/security/rate-limit";
+import { readAuthJson, authFailure } from "@/lib/auth/request";
 import { parseFeedQuery, parseVideoInput } from "@/lib/video-input";
 import User from "@/models/User";
 import { queueEmail, deliverQueuedEmails } from "@/lib/email/outbox";
@@ -36,6 +38,7 @@ export async function GET(req: Request) {
       { status: 401, headers },
     );
   try {
+    await limitRequest("feed", mine ? session!.user.id : null, req.headers);
     await connectToDatabase();
     const direction = query.sort === "oldest" ? 1 : -1;
     const comparison = direction === 1 ? "$gt" : "$lt";
@@ -106,6 +109,8 @@ export async function GET(req: Request) {
       { headers },
     );
   } catch (error) {
+    const limited = rateLimitResponse(error);
+    if (limited) return limited;
     console.error(
       "Video feed failed",
       error instanceof Error ? error.name : "Unknown error",
@@ -126,9 +131,10 @@ export async function POST(req: Request) {
     );
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    await limitRequest("publish",session.user.id,req.headers);
+    body = await readAuthJson(req);
+  } catch (error) {
+    return authFailure(error,"Video saving is temporarily unavailable. Please try again later.");
   }
   const input = parseVideoInput(body);
   if (!input)

@@ -128,13 +128,16 @@ export const authOptions: NextAuthOptions = {
         if (typeof token.id !== "string" || !/^[a-f0-9]{24}$/i.test(token.id))
           throw new Error("Invalid session");
         const current = await User.findById(token.id)
-          .select("sessionVersion")
-          .lean<{ sessionVersion?: number }>();
+          .select("sessionVersion name image email")
+          .lean<{ _id: unknown; sessionVersion?: number; name?: string; image?: string; email: string }>();
         if (
           !current ||
           (current.sessionVersion ?? 0) !== (token.sessionVersion ?? 0)
         )
           throw new Error("Session has ended");
+        const identity = publicUploader(current);
+        token.name = identity.name;
+        token.picture = identity.image;
       }
       return token;
     },

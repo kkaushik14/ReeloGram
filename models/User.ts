@@ -8,6 +8,7 @@ export interface InterFUser {
   signInGrant?: { digest: string; expiresAt: Date };
   passwordReset?: { digest: string; expiresAt: Date };
   image?: string;
+  imageFileId?: string;
   email: string;
   password: string;
   _id?: mongoose.Types.ObjectId;
@@ -19,6 +20,7 @@ const userSchema = new Schema<InterFUser>(
   {
     name: { type: String, trim: true, maxlength: 80 },
     image: { type: String },
+    imageFileId: { type: String, select: false },
     dateOfBirth: { type: Date, select: false },
     sessionVersion: { type: Number, default: 0 },
     signInGrant: {
@@ -52,6 +54,7 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.index({ "passwordReset.digest": 1 }, { sparse: true });
+userSchema.index({imageFileId:1},{sparse:true});
 
 const User = models?.User || model<InterFUser>("User", userSchema);
 export default User;

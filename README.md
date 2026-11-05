@@ -168,3 +168,25 @@ Hero and login/signup clips use a stable optimized MP4 rendition selected for th
 Google Analytics uses measurement ID `G-B6PDWD34WF` only in Vercel's Production environment and only after the visitor chooses **Allow analytics**. No Google tag is loaded before that choice. **Essential only** preserves sign-in and media functionality without analytics. The consent choice expires after 180 days and can be changed through Cookie settings in the footer or Privacy policy. Changes synchronize between open tabs; withdrawal disables future measurement and removes this site's `_ga` cookies.
 
 Page-view events use an allowlist of app routes, fixed page titles, and URLs without query strings or fragments. Authentication, password recovery and unknown routes are excluded. Advertising and Google signals are disabled. Local development and preview deployments do not collect analytics.
+
+## Profile, settings and request protection
+
+`/profile` and `/settings` require a current, non-revoked session. Profile shows private, read-only name, email and date of birth; legacy accounts without a birthday show “Not provided”. The account API exposes no method to edit those identity fields. Users may upload or remove a profile photo. The server accepts one still JPEG/PNG/WebP up to 2 MB, checks actual image content, limits decoded pixels, strips metadata, and stores a resized WebP in ImageKit. Actor IDs and file names come from the server, never the submitted form. Sessions and public video-author badges use the current profile picture.
+
+Avatar replacement/removal uses profile and asset leases. Tracked cleanup jobs survive temporary service failures and retain images referenced by another profile or video. They run after photo changes; `npm run media:retry` processes due jobs and can be scheduled alongside `npm run email:retry`. An uncertain database write is checked before any uploaded file is deleted.
+
+Settings cover light/dark appearance, automatic playback, automatic/high/data-saving video quality, password recovery, and cookie preferences. Viewing choices apply to this browser and synchronize between its tabs. Storage restrictions fall back to in-memory choices with an explanatory notice. With autoplay off, active players wait for the user to press Play before loading media. High quality favours the highest useful rendition within hardware, source and explicit data-saving limits.
+
+`lib/security/rate-limit.ts` shares atomic MongoDB counters across workers for feeds, previews, upload authorization, publication, video changes and profile operations. Authentication uses the same engine with separate policies. Limits return HTTP 429, Retry-After and no-store responses. Vercel's sanitized forwarded address is trusted only when running on Vercel; other hosts must explicitly configure a trusted sanitizing proxy. IPv6 /64 groups prevent interface-address rotation from bypassing network limits. Raw account identifiers and network addresses are not stored in the counters.
+
+Mutations enforce same-origin requests and bounded input. Server checks protect the profile and uploader-only video actions independently of the UI. Response headers prevent framing and MIME sniffing, restrict form targets and embedded objects, and limit camera, microphone and location access. These controls complement the hosting platform's network protection.
+
+On mobile, the hero heading and Explore Reels action sit above the video. Credits, source, pause and slide selection stay on the video. Account links open a fresh document so previously loaded analytics code does not carry into private Profile/Settings forms. ReeloGram wordmarks use the shared accent colour.
+
+### Checking the Google tag
+
+The configured GA4 ID is `G-B6PDWD34WF`. The tag remains fully blocked until analytics is allowed. To test it, open the Production domain, choose Cookie settings → Allow analytics, and then use Google's Tag Assistant in that accepted browser session. A scanner that never grants consent may report no tag; this is expected for [basic consent mode](https://support.google.com/analytics/answer/10000067). The single async loader is inserted into the document head after consent, and records its load result in `data-analytics-ready` on the script element. Authentication, Profile and Settings pages remain excluded. Essential-only choice disables tracking and removes the site's analytics cookies. Analytics cookies use Secure and SameSite=Lax; login cookies additionally use HttpOnly.
+
+## Source code rights
+
+Copyright (c) 2026 Kumar Kaushik. All rights reserved. See [LICENSE](LICENSE) for the notice covering this project's original source code. Third-party dependencies, videos, images and logos retain their respective licenses and owners' rights. The package is marked `UNLICENSED`.

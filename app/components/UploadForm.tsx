@@ -99,7 +99,9 @@ export default function UploadForm() {
       });
       if (!response.ok)
         throw Error(
-          response.status === 409
+          response.status === 429
+            ? "You’ve reached the posting limit. Please wait before trying again. Your uploaded files are kept for retry."
+            : response.status === 409
             ? "This video is already shared or is busy. Check your videos before trying again."
             : "Your files are uploaded, but we couldn’t publish the video. Please try again.",
         );

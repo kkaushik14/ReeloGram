@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import VideoCredit from "./VideoCredit";
 import AdaptiveVideo from "./AdaptiveVideo";
+import {useBrowserPreferences} from "./useBrowserPreferences";
 import UploaderBadge from "./UploaderBadge";
 import type { FeedVideo } from "./VideoFeed";
 
@@ -47,6 +48,7 @@ export default function ReelStream({
   onEdit,
   onDelete,
 }: Props) {
+  const {preferences,ready:preferencesReady}=useBrowserPreferences();
   const root = useRef<HTMLDivElement>(null);
   const player = useRef<HTMLVideoElement | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
@@ -74,13 +76,13 @@ export default function ReelStream({
   const current = videos[index];
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion:reduce)");
-    setPaused(media.matches);
+    if(preferencesReady)setPaused(media.matches || !preferences.autoplay);
     const change = () => {
       if (media.matches) setPaused(true);
     };
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);
-  }, []);
+  }, [preferencesReady,preferences.autoplay]);
   useEffect(() => {
     const container = root.current;
     if (!container) return;

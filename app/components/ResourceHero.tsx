@@ -6,6 +6,7 @@ import { ArrowUpRight, Pause, Play } from "lucide-react";
 import Headline from "./motion/Headline";
 import AdaptiveVideo from "./AdaptiveVideo";
 import type { FeedVideo } from "./VideoFeed";
+import {useBrowserPreferences} from "./useBrowserPreferences";
 
 const resources = [
   {
@@ -44,6 +45,7 @@ export default function ResourceHero({
   suspended?: boolean;
 }) {
   const player = useRef<HTMLVideoElement>(null);
+  const {preferences,ready}=useBrowserPreferences();
   const [clips, setClips] = useState<FeedVideo[]>([]);
   const [blocked, setBlocked] = useState(false);
   const [manualPlay, setManualPlay] = useState(false);
@@ -85,7 +87,7 @@ export default function ResourceHero({
     return () => controller.abort();
   }, []);
 
-  const stopped = paused || blocked || (reduced && !manualPlay);
+  const stopped = paused || blocked || ((reduced || !preferences.autoplay) && !manualPlay);
   function toggle() {
     if (stopped) {
       setPaused(false);
@@ -96,6 +98,11 @@ export default function ResourceHero({
   }
 
   return (
+    <>
+    <div className="resource-mobile-intro">
+      <h1>See something new.</h1>
+      <Link href="/reels" className="hero-cta">Explore Reels <ArrowUpRight size={21} /></Link>
+    </div>
     <section
       className={`resource-hero ${paused ? "is-paused" : ""}`}
       aria-label="Discover free video resources"
@@ -113,7 +120,7 @@ export default function ResourceHero({
           <AdaptiveVideo
             active={!suspended}
             context="hero"
-            playing={!paused && !hidden && (!reduced || manualPlay)}
+            playing={ready&&!paused && !hidden && (!reduced || manualPlay) && (preferences.autoplay || manualPlay)}
             onPlaybackBlocked={setBlocked}
             sourceSize={clip.transformation}
             key={clip.id}
@@ -201,5 +208,6 @@ export default function ResourceHero({
         {stopped ? <Play size={15} /> : <Pause size={15} />}
       </button>
     </section>
+    </>
   );
 }

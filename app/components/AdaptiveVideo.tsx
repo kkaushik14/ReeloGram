@@ -8,6 +8,7 @@ import {
   type VideoHTMLAttributes,
 } from "react";
 import type Hls from "hls.js";
+import {useBrowserPreferences} from "./useBrowserPreferences";
 import {
   VIDEO_PLAYBACK,
   imageKitVideoBase,
@@ -44,10 +45,11 @@ let hlsModule: Promise<typeof import("hls.js")> | undefined;
 const readyManifests = new Set<string>();
 const unavailable = new Set<string>();
 
-function environment(): PlaybackEnvironment {
+function environment(quality:PlaybackEnvironment["quality"]="auto"): PlaybackEnvironment {
   const device = navigator as DeviceNavigator;
   return {
-    saveData: device.connection?.saveData,
+    saveData: device.connection?.saveData || quality==="saver",
+    quality,
     effectiveType: device.connection?.effectiveType,
     downlink: device.connection?.downlink,
     memory: device.deviceMemory,
@@ -124,10 +126,16 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
     forwardedRef,
   ) {
     const media = useRef<HTMLVideoElement>(null);
+    const {preferences}=useBrowserPreferences();
+    const qualityPreference=useRef(preferences.quality);
+    qualityPreference.current=preferences.quality;
     useImperativeHandle(forwardedRef, () => media.current!);
     const [cap, setCap] = useState(720);
     const [loading, setLoading] = useState(false);
     const [visible, setVisible] = useState(true);
+    const [requestedSource,setRequestedSource]=useState<string>();
+    useEffect(()=>{if(src&&playing!==false)setRequestedSource(src);},[src,playing]);
+    const canLoad=playing!==false||requestedSource===src;
     useEffect(() => {
       const element = media.current;
       if (!element) return;
@@ -165,7 +173,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
     const transitioning = useRef(false);
     useEffect(() => {
       if (!src || active || !prepare) return;
-      const device = environment();
+      const device = environment(qualityPreference.current);
       if (
         device.saveData ||
         ["slow-2g", "2g", "3g"].includes(device.effectiveType ?? "")
@@ -194,7 +202,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       const update = () =>
         setCap(
           selectVideoCap(
-            environment(),
+            environment(qualityPreference.current),
             context,
             element.clientHeight || 720,
             { width: sourceSize?.width, height: sourceSize?.height },
@@ -212,14 +220,14 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         connection?.removeEventListener("change", update);
         window.removeEventListener("resize", update);
       };
-    }, [context, sourceSize?.width, sourceSize?.height]);
+    }, [context, sourceSize?.width, sourceSize?.height, preferences.quality]);
     useEffect(() => {
       adaptiveCap.current();
-    }, [cap]);
+    }, [cap,preferences.quality]);
 
     useEffect(() => {
       const node = media.current;
-      if (!node || !src || !active || !visible) {
+      if (!node || !src || !active || !visible || !canLoad) {
         node?.pause();
         return;
       }
@@ -238,8 +246,9 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       let startupTimer: ReturnType<typeof setTimeout> | undefined;
       let stallTimer: ReturnType<typeof setTimeout> | undefined;
       const stableQuality = usesStableVideoQuality(context);
+      let lastQualityPreference=qualityPreference.current;
       capRef.current = selectVideoCap(
-        environment(),
+        environment(qualityPreference.current),
         context,
         element.clientHeight || 720,
         { width: sourceSize?.width, height: sourceSize?.height },
@@ -416,6 +425,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
               if (level.height <= capRef.current) index = position;
             });
             hls.autoLevelCapping = index;
+            if(qualityPreference.current==="high")hls.nextAutoLevel=index;
             element.dataset.qualityCap = String(capRef.current);
           };
           adaptiveCap.current = update;
@@ -545,8 +555,10 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         if (stableQuality) {
           // Browser bandwidth estimates fluctuate. Honour explicit saving/slow-network
           // changes immediately; an actual sustained stall handles other reductions.
-          const device = environment();
-          if ((device.saveData || ["slow-2g", "2g", "3g"].includes(device.effectiveType ?? "")) && lastHeight > capRef.current && !loadingProgressive)
+          const device = environment(qualityPreference.current);
+          const changed=lastQualityPreference!==qualityPreference.current;
+          lastQualityPreference=qualityPreference.current;
+          if (lastHeight && !loadingProgressive && (changed || ((device.saveData || ["slow-2g", "2g", "3g"].includes(device.effectiveType ?? "")) && lastHeight > capRef.current)))
             void progressive(capRef.current);
           return;
         }
@@ -580,6 +592,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
             if (level.height <= capRef.current) index = position;
           });
           stream.current.autoLevelCapping = index;
+          if(qualityPreference.current==="high")stream.current.nextAutoLevel=index;
         } else if (lastHeight > capRef.current && !loadingProgressive)
           void progressive(capRef.current);
       };
@@ -608,7 +621,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       };
       // A quality cap updates the current stream without recreating its media source.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [src, active, context, visible]);
+    }, [src, active, context, visible,canLoad]);
     useEffect(() => {
       const element = media.current;
       if (!element) return;

@@ -1,0 +1,403 @@
+.brand-wordmark,
+.auth-brand > span,
+.footer-brand strong,
+.showcase-top strong {
+  color: var(--color-accent);
+}
+.account-content {
+  max-width: 1100px;
+}
+.account-content .page-heading h1 {
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 650;
+  letter-spacing: -1.2px;
+}
+.account-content .page-heading p {
+  font-size: 17px;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.account-tabs {
+  display: flex;
+  gap: 6px;
+  width: max-content;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  margin-bottom: 28px;
+}
+.account-tabs a {
+  padding: 10px 24px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.account-tabs a[aria-current="page"] {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-subtle-text);
+}
+.account-panel {
+  padding: 30px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+.account-panel h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+.account-panel p {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+}
+.account-section-heading {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 26px;
+}
+.account-section-heading > svg {
+  color: var(--color-accent);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.profile-photo-panel {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+}
+.profile-photo {
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+}
+.profile-photo > img,
+.profile-photo .uploader-avatar {
+  width: 104px;
+  height: 104px;
+  border-radius: 30px;
+  object-fit: cover;
+  font-size: 34px;
+}
+.profile-photo .uploader-badge > strong {
+  display: none;
+}
+.profile-photo .uploader-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-photo-content {
+  min-width: 0;
+}
+.profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+}
+.profile-photo-actions .button,
+.profile-photo-actions .text-button {
+  font-size: 15px;
+  min-height: 44px;
+}
+.photo-file {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+.photo-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.photo-file:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.photo-file.is-busy {
+  opacity: 0.6;
+  cursor: wait;
+}
+.photo-file-name {
+  font-size: 14px !important;
+  overflow-wrap: anywhere;
+}
+.account-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.account-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.account-fields input {
+  font-size: 16px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  padding: 14px;
+  border-color: var(--color-border);
+  cursor: default;
+}
+.account-fields input:focus {
+  border-color: var(--color-border-strong);
+}
+.appearance-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.appearance-options button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-surface-raised);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: left;
+}
+.appearance-options button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-subtle-text);
+}
+.appearance-options button > svg:last-child:not(:first-child) {
+  margin-left: auto;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 24px 0;
+  border-top: 1px solid var(--color-divider);
+}
+.setting-row:last-child {
+  padding-bottom: 0;
+}
+.setting-row > div {
+  max-width: 590px;
+}
+.setting-row label {
+  font-size: 17px;
+  font-weight: 600;
+}
+.setting-row p {
+  font-size: 15px;
+}
+.setting-row select {
+  min-width: 160px;
+  padding: 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  font-size: 15px;
+}
+.setting-row input[role="switch"] {
+  appearance: none;
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 20px;
+  background: var(--color-surface-pressed);
+  padding: 0;
+  cursor: pointer;
+}
+.setting-row input[role="switch"]:before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  transition: transform 0.18s;
+}
+.setting-row input[role="switch"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.setting-row input[role="switch"]:checked:before {
+  transform: translateX(18px);
+  background: var(--color-accent-contrast);
+}
+.settings-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+.settings-links a,
+.settings-links button {
+  color: var(--color-accent);
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.account-panel .setting-note {
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-divider);
+  font-size: 15px;
+}
+@media (max-width: 700px) {
+  .account-panel {
+    padding: 24px 20px;
+  }
+  .profile-photo-panel {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .profile-photo,
+  .profile-photo > img,
+  .profile-photo .uploader-avatar {
+    width: 88px;
+    height: 88px;
+  }
+  .account-fields {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .setting-row {
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .setting-row:has(select) {
+    flex-direction: column;
+  }
+  .setting-row select {
+    width: 100%;
+  }
+  .account-tabs {
+    margin-bottom: 24px;
+  }
+  .account-tabs a {
+    padding: 10px 22px;
+  }
+  .appearance-options {
+    gap: 10px;
+  }
+  .appearance-options button {
+    padding: 16px 12px;
+  }
+  .account-panel h2 {
+    font-size: 21px;
+  }
+  .profile-photo-actions {
+    gap: 10px;
+  }
+  .profile-photo-actions .text-button {
+    padding: 8px 4px;
+  }
+}
+@media (max-height: 800px) {
+  .sidebar-note {
+    display: none;
+  }
+  .sidebar {
+    padding-top: 24px;
+  }
+  .sidebar .nav-item {
+    min-height: 42px;
+    margin-bottom: 3px;
+  }
+  .sidebar-bottom .sidebar-foot {
+    padding-top: 12px;
+  }
+  .sidebar-head {
+    margin-bottom: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setting-row input[role="switch"]:before {
+    transition: none;
+  }
+}
+@media (max-width: 700px) and (max-height: 480px) {
+  .sidebar {
+    padding: 8px 16px;
+  }
+  .sidebar .sidebar-bottom > .nav-item {
+    min-height: 32px;
+    height: 32px;
+    margin-bottom: 0;
+  }
+  .sidebar .nav-item {
+    margin-bottom: 2px;
+  }
+  .sidebar-foot {
+    display: none;
+  }
+}
+@media (max-width: 700px) and (max-height: 350px) {
+  .sidebar .sidebar-bottom > .nav-item {
+    min-height: 28px;
+    height: 28px;
+  }
+  .sidebar {
+    padding-block: 4px;
+  }
+}
+@media (max-width: 700px) and (max-height: 480px) {
+  .sidebar {
+    width: min(440px, calc(100vw - 56px));
+    padding: 8px 16px;
+  }
+  .sidebar nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0;
+  }
+  .sidebar nav .nav-item {
+    height: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 14px;
+    gap: 8px;
+  }
+  .sidebar .mobile-account {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px 0;
+  }
+  .sidebar-bottom > .nav-item {
+    display: none;
+  }
+  .sidebar .mobile-account .uploader-badge strong {
+    max-width: 150px;
+  }
+  .sidebar-foot {
+    display: none;
+  }
+}
+@media (min-width: 1024px) {
+  .sidebar-collapsed .sidebar {
+    overflow: visible !important;
+  }
+}

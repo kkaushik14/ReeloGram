@@ -1,31 +1,17 @@
 import { NextResponse } from "next/server";
-export class AuthRequestError extends Error {
-  constructor(
-    message: string,
-    public status = 400,
-  ) {
-    super(message);
-  }
-}
+import {AuthRequestError,assertSameOrigin} from "../security/request.ts";
+export {AuthRequestError,assertSameOrigin} from "../security/request.ts";
 export async function readAuthJson(
   request: Request,
 ): Promise<Record<string, unknown>> {
   if (
     !request.headers
       .get("content-type")
-      ?.toLowerCase()
-      .startsWith("application/json")
+      ?.split(";")[0].trim().toLowerCase()
+      .match(/^application\/json$/)
   )
     throw new AuthRequestError("Use a JSON request.", 415);
-  const origin = request.headers.get("origin");
-  if (origin) {
-    const allowed = new Set([new URL(request.url).origin]);
-    for (const value of [process.env.REELOGRAM_APP_URL, process.env.REELOGRAM_NEXTAUTH_URL]) {
-      if (value) allowed.add(new URL(value).origin);
-    }
-    if (!allowed.has(origin))
-      throw new AuthRequestError("This request is not allowed.", 403);
-  }
+  assertSameOrigin(request);
   const reader = request.body?.getReader();
   if (!reader) throw new AuthRequestError("Provide the required fields.");
   let bytes = 0;

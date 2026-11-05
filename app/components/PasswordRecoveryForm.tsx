@@ -89,7 +89,7 @@ export default function PasswordRecoveryForm({
         <Link href="/" className="auth-brand" aria-label="ReeloGram home">
           <Aperture size={27} />
           <span>
-            ReeloGram<span className="brand-dot">.</span>
+            <span className="brand-wordmark">ReeloGram</span><span className="brand-dot">.</span>
           </span>
         </Link>
         <h1 id="recovery-title">

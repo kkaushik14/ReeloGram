@@ -29,6 +29,7 @@ export default function PrivacyPage() {
           there is no profile picture, your initials are displayed. You control
           your own videos through Your videos.
         </p>
+        <p>You can set or remove your profile photo from your protected Profile page. Uploaded profile photos are checked and resized, and embedded image metadata is removed before storage. Your name, email and date of birth are read-only in the profile form.</p>
       </section>
       <section>
         <h2>Storage and delivery</h2>
@@ -59,6 +60,7 @@ export default function PrivacyPage() {
           device information exposed by your browser to choose a suitable video
           quality. Your cookie choice is stored in this browser for up to 180 days.
         </p>
+        <p>Appearance, autoplay and picture-quality preferences are saved in this browser. You can manage them in Settings. Security limits use temporary hashed account and network counters to reduce automated abuse.</p>
         <p>Optional Google Analytics loads only after you allow analytics cookies. It helps us understand page visits and site usage. Account pages, form details, search queries and password-reset links are excluded from our page-view tracking. Google receives usage and device information when analytics is enabled. Advertising features are disabled. Choosing essential cookies keeps analytics off and leaves sign-in, uploads and playback available.</p>
         <p>You can withdraw or change your choice at any time using <CookieSettingsButton />. Turning analytics off stops future tracking and removes this site’s Google Analytics cookies. It does not erase data already received by Google.</p>
       </section>

@@ -4,12 +4,16 @@ import { Aperture, Pause, Play, ArrowUpRight } from "lucide-react";
 import type { FeedVideo } from "./VideoFeed";
 import VideoCredit from "./VideoCredit";
 import AdaptiveVideo from "./AdaptiveVideo";
+import {useBrowserPreferences} from "./useBrowserPreferences";
 
 export default function AuthShowcase() {
   const [video, setVideo] = useState<FeedVideo | null>(null);
   const [desktop, setDesktop] = useState(false);
   const [paused, setPaused] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [manual,setManual]=useState(false);
+  const {preferences,ready}=useBrowserPreferences();
+  const stopped=paused||(!preferences.autoplay&&!manual);
   const player = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const media = matchMedia("(min-width:801px)");
@@ -51,7 +55,7 @@ export default function AuthShowcase() {
         <div className="showcase-top">
           <span>
             <Aperture size={20} />
-            <strong>ReeloGram</strong>
+            <strong className="brand-wordmark">ReeloGram</strong>
           </span>
           <span>Reels</span>
         </div>
@@ -60,7 +64,7 @@ export default function AuthShowcase() {
             <AdaptiveVideo
               context="preview"
               active={desktop}
-              playing={!paused}
+              playing={ready&&!stopped}
               sourceSize={video.transformation}
               onPlaybackBlocked={setBlocked}
               ref={player}
@@ -81,16 +85,17 @@ export default function AuthShowcase() {
           {video && (
             <button
               className="showcase-toggle"
-              aria-label={paused || blocked ? "Play preview" : "Pause preview"}
+              aria-label={stopped || blocked ? "Play preview" : "Pause preview"}
               onClick={() => {
-                if (blocked) {
+                if (blocked || stopped) {
+                  setManual(true);
                   setBlocked(false);
                   setPaused(false);
                   void player.current?.play().catch(() => setBlocked(true));
                 } else setPaused((value) => !value);
               }}
             >
-              {paused || blocked ? <Play size={18} /> : <Pause size={18} />}
+              {stopped || blocked ? <Play size={18} /> : <Pause size={18} />}
             </button>
           )}
         </div>

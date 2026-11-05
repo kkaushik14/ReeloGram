@@ -13,7 +13,9 @@ export async function uploadToImageKit(
     signal: AbortSignal.timeout(UPLOAD_POLICY.authTimeoutMs),
   });
   if (!response.ok)
-    throw new Error(response.status === 401
+    throw new Error(response.status === 429
+      ? "Too many uploads. Please wait before trying again."
+      : response.status === 401
       ? "Please sign in again before uploading."
       : "Uploads are temporarily unavailable. Please try again later.");
   const auth = await response.json();

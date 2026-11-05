@@ -8,7 +8,7 @@ test("analytics defaults to off for missing, malformed, stale and invalid choice
   assert.equal(readCookieChoice(JSON.stringify({version:1,analytics:true,updatedAt:now}),now).analytics,true);
 });
 test("tracking excludes account pages and arbitrary paths, queries and fragments",()=>{
-  for(const path of ["/login","/register","/forgot-password","/reset-password","/reset-password#token=secret","/api/auth/session","/unknown","/?q=private","/__proto__"])
+  for(const path of ["/login","/register","/forgot-password","/reset-password","/profile","/settings","/reset-password#token=secret","/api/auth/session","/unknown","/?q=private","/__proto__"])
     assert.equal(analyticsPage(path,"https://app.example"),null);
   assert.deepEqual(analyticsPage("/reels","https://app.example/?q=private#secret"),{page_location:"https://app.example/reels",page_title:"Reels — ReeloGram"});
 });
