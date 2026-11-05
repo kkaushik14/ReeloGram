@@ -32,6 +32,8 @@ type DeviceNavigator = Navigator & {
 };
 type Props = Omit<VideoHTMLAttributes<HTMLVideoElement>, "src" | "onError"> & {
   src?: string;
+  /** Expose the public media URL in server-rendered watch pages. */
+  discoverable?: boolean;
   context?: VideoRole;
   active?: boolean;
   prepare?: boolean;
@@ -109,6 +111,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
   function AdaptiveVideo(
     {
       src,
+      discoverable = false,
       context = "watch",
       active = true,
       prepare = false,
@@ -636,6 +639,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
     return (
       <video
         {...props}
+        src={discoverable ? src : undefined}
         controls={props.controls && !loading}
         ref={media}
         playsInline={props.playsInline ?? true}

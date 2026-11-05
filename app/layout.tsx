@@ -1,5 +1,6 @@
 import "@/lib/auth/environment";
 import type { Metadata } from "next";
+import { SITE_ORIGIN, SITE_DESCRIPTION, jsonLd } from "@/lib/seo/config";
 import Script from "next/script";
 import "./globals.css";
 import "./motion.css";
@@ -15,9 +16,16 @@ import "./consent.css";
 import "./profile-settings.css";
 import "./flash.css";
 export const metadata: Metadata = {
-  title: "ReeloGram — Stories in motion",
-  description:
-    "Discover a fresh perspective. Watch and share videos on ReeloGram.",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: {
+    default: "ReeloGram — Watch and share videos",
+    template: "%s — ReeloGram",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: "ReeloGram",
+  // Public pages explicitly opt in; new account routes are safe by default.
+  robots: { index: false, follow: false },
+  icons: { icon: "/icon.svg" },
 };
 export default function RootLayout({
   children,
@@ -36,6 +44,17 @@ export default function RootLayout({
         >{`try{document.documentElement.dataset.theme=localStorage.getItem('reelogram-theme')==='dark'?'dark':'light'}catch{}`}</Script>
       </head>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "ReeloGram",
+              url: SITE_ORIGIN,
+            }),
+          }}
+        />
         <Providers>
           <AppShell>{children}</AppShell>
           <CookieConsent

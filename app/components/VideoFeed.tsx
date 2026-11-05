@@ -605,8 +605,10 @@ export default function VideoFeed({
                     </button>
                     <div className="video-info">
                       <h3>
-                        <button
-                          onClick={() => {
+                        <Link href={`/videos/${video.id}`}
+                          onClick={(event) => {
+                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                            event.preventDefault();
                             setCopied(false);
                             setShareError("");
                             setPlaybackError(false);
@@ -614,7 +616,7 @@ export default function VideoFeed({
                           }}
                         >
                           {video.title}
-                        </button>
+                        </Link>
                       </h3>
                       <p>{video.description}</p>
                       <div className="video-meta">
@@ -738,7 +740,7 @@ export default function VideoFeed({
               try {
                 setShareError("");
                 await navigator.clipboard.writeText(
-                  `${window.location.origin}/?video=${watch.id}`,
+                  `${window.location.origin}/videos/${watch.id}`,
                 );
                 setCopied(true);
               } catch {

@@ -1,4 +1,6 @@
+import { pageMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
+export const metadata = pageMetadata("Help & answers", "Find answers about ReeloGram accounts, video uploads, playback, and managing your videos.", "/help");
 export default function HelpPage() {
   return (
     <article className="content policy-content">

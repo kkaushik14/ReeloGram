@@ -20,7 +20,7 @@ Set `REELOGRAM_MONGODB_URL` to your MongoDB connection string. Generate a unique
 npm run dev
 ```
 
-Open http://localhost:3000. Basic authentication pages are available at `/register` and `/login`. Registration requires a reachable MongoDB database. The ImageKit authentication endpoint requires a signed-in session.
+Open http://localhost:3000. The development launcher fixes the hostname and port, and overrides local authentication/email origins for its process. It fails if port 3000 is occupied instead of silently switching ports. Stop the existing project server before restarting; do not terminate unrelated processes. Production settings are not changed. Basic authentication pages are available at `/register` and `/login`. Registration requires a reachable MongoDB database. The ImageKit authentication endpoint requires a signed-in session.
 
 ## Checks
 
@@ -31,7 +31,7 @@ npm test
 npm run build
 ```
 
-The regression tests cover credential validation, upload type/size boundaries, and database connection caching/retry behavior without writing to a real database. A production build fetches the existing Geist fonts from Google.
+The regression tests cover credential validation, upload type/size boundaries, and database connection caching/retry behavior without writing to a real database.
 
 ### End-to-end checks
 
@@ -213,3 +213,12 @@ Brevo's Free plan can queue messages after its 300-email allowance, so relying o
 Provider choice and successful-send metadata are stored for seven days without recipients or message bodies. A retry stays on its selected provider, and a lease prevents simultaneous attempts. Brevo receives a stable UUID idempotency key. Authentication errors, sender errors, HTTP 429, service errors and uncertain network timeouts are not treated as quota exhaustion. An uncertain Brevo delivery is never switched to SMTP; after 14 minutes it requires checking Brevo's logs before resending, rather than risking duplication outside the provider's idempotency window. Existing queued notifications retain their retry behavior. SMTP delivery acknowledgements cannot guarantee exactly-once inbox delivery after a connection failure.
 
 Use `npm run test:brevo` for isolated MongoDB + TLS SMTP tests covering quota exhaustion, simultaneous requests, cached account checks, quota recovery, sticky provider retries, errors and deduplication. `npm run test:email` checks the existing SMTP outbox. Change production provider/sender settings only after verifying the selected Brevo sender and a delivery test, then redeploy. Set `REELOGRAM_EMAIL_PROVIDER=smtp` to return to the original provider.
+
+## Search and sharing
+
+- Canonical public origin: `https://www.reelogram.in`, centralized in `lib/seo/config.ts`.
+- `/robots.txt` is public and points to `/sitemap.xml`. The sitemap index includes `/sitemaps/pages.xml` and live video sitemaps, capped at 1,000 videos per file. Only public feed videos (including legacy records with no placement) are listed. Hero clips, archived videos, and deletion-pending records are excluded. Database outages return 503 with Retry-After instead of an empty success.
+- `/videos/:id` renders the public title, description, creator credit, ImageKit player source and VideoObject data on the server. New share links point here; old `/?video=:id` and `/reels?video=:id` links redirect permanently. Deleted/private/nonexistent records return a not-found response without revealing metadata. Neither sitemap nor watch pages persistently cache database records.
+- Public pages have unique titles, descriptions, canonicals, Open Graph and Twitter metadata. Search/filter variants are noindex with a clean canonical. Private/account pages inherit noindex and receive an X-Robots-Tag header, including their sign-in redirects. Authorization continues to protect their data; robots rules are not a security boundary. Local and preview hosts receive noindex headers.
+- Verify the `reelogram.in` domain in Google Search Console via DNS, then submit `https://www.reelogram.in/sitemap.xml`. Keep the verification TXT record in DNS. Analytics consent remains unchanged.
+- Run `npm run test:seo` for isolated real HTTP/MongoDB checks, including publication, editing, deletion, escaping, metadata and access boundaries. Test servers use disposable ports/build directories and never replace the development server on port 3000.

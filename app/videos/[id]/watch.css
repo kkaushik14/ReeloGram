@@ -1,0 +1,23 @@
+.watch-page {
+  max-width: 1040px;
+}
+.watch-page .page-heading h1 {
+  overflow-wrap: anywhere;
+}
+.watch-page .player {
+  display: block;
+  height: min(62dvh, 680px);
+  object-fit: contain;
+}
+.watch-page .video-meta {
+  margin-top: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.watch-page .watch-description {
+  font-size: 16px;
+  line-height: 1.75;
+}
+.watch-page > .button {
+  margin-top: 24px;
+}

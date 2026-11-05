@@ -41,3 +41,6 @@ input:-webkit-autofill{-webkit-text-fill-color:var(--color-text);box-shadow:0 0 
 }
 @media(max-width:700px){.account-actions{min-width:0}.account-name{max-width:clamp(64px,20vw,110px)}}
 @media(max-width:360px){.topbar .button.small{padding-inline:8px;gap:4px}}
+
+/* Video titles remain visually identical while exposing real watch-page links. */
+.video-info h3 a { overflow-wrap: anywhere; }

@@ -16,6 +16,7 @@ import {
   publishMediaError,
   publishedVideoUrl,
 } from "@/lib/uploads/publish-media";
+import { PUBLIC_VIDEO_FILTER } from "@/lib/seo/config";
 import { presentVideos } from "@/lib/video-presenter";
 import {
   getMediaFile,
@@ -48,8 +49,7 @@ export async function GET(req: Request) {
     const direction = query.sort === "oldest" ? 1 : -1;
     const comparison = direction === 1 ? "$gt" : "$lt";
     const conditions: FilterQuery<InterFVideo>[] = [
-      { deletionPending: { $ne: true } },
-      { placement: { $nin: ["hero", "archived"] } },
+      PUBLIC_VIDEO_FILTER,
     ];
     if (mine) conditions.push({ uploadedBy: session!.user.id });
     const providers: Record<string, string> = {
@@ -247,7 +247,7 @@ export async function POST(req: Request) {
                   videoPostedEmail(
                     owner.email,
                     presented.title,
-                    `${appOrigin()}/?video=${presented.id}`,
+                    `${appOrigin()}/videos/${presented.id}`,
                   ),
                   `video-posted:${presented.id}`,
                 );

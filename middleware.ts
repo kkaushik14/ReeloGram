@@ -1,10 +1,51 @@
 import "@/lib/auth/environment";
+import {
+  PUBLIC_PAGES,
+  SITE_ORIGIN,
+  validVideoId,
+  videoPath,
+} from "@/lib/seo/config";
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const publicWatch = /^\/videos\/[a-f0-9]{24}$/i.test(pathname);
+  const seoFile =
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname === "/social-preview.png" ||
+    /^\/sitemaps\/(pages|videos-(0|[1-9]\d{0,4}))\.xml$/.test(pathname);
+  const indexable =
+    pathname === "/icon.svg" ||
+    PUBLIC_PAGES.some((path) => path === pathname) ||
+    publicWatch ||
+    seoFile;
+  const preview =
+    process.env.VERCEL_ENV === "preview" ||
+    req.nextUrl.hostname !== new URL(SITE_ORIGIN).hostname;
+  const finish = (response: NextResponse) => {
+    if (!indexable || preview || req.nextUrl.search)
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  };
+  const legacyVideo = req.nextUrl.searchParams.get("video");
   if (
+    (pathname === "/" || pathname === "/reels") &&
+    legacyVideo &&
+    validVideoId(legacyVideo)
+  ) {
+    return finish(
+      NextResponse.redirect(
+        new URL(videoPath(legacyVideo.toLowerCase()), req.url),
+        308,
+      ),
+    );
+  }
+  if (
+    seoFile ||
+    pathname.startsWith("/videos/") ||
+    pathname.startsWith("/sitemaps/") ||
     pathname === "/" ||
     pathname === "/reels" ||
     pathname === "/icon.svg" ||
@@ -31,17 +72,16 @@ export async function middleware(req: NextRequest) {
         pathname === "/api/videos" ||
         pathname.startsWith("/api/videos/")))
   ) {
-    return NextResponse.next();
+    return finish(NextResponse.next());
   }
   const token = await getToken({
     req,
     secret: process.env.REELOGRAM_NEXTAUTH_SECRET,
   });
-  if (token) return NextResponse.next();
+  if (token) return finish(NextResponse.next());
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json(
-      { error: "Authentication required" },
-      { status: 401 },
+    return finish(
+      NextResponse.json({ error: "Authentication required" }, { status: 401 }),
     );
   }
   const login = new URL("/login", req.url);
@@ -49,7 +89,7 @@ export async function middleware(req: NextRequest) {
     "callbackUrl",
     req.nextUrl.pathname + req.nextUrl.search,
   );
-  return NextResponse.redirect(login);
+  return finish(NextResponse.redirect(login));
 }
 
 export const config = {

@@ -4,12 +4,12 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "node scripts/dev.mjs",
     "prebuild": "node scripts/update-email-blocklist.mjs --fallback",
     "email:update-blocklist": "node scripts/update-email-blocklist.mjs",
     "test:daily-blocklist": "node --experimental-strip-types scripts/test-daily-blocklist.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
@@ -21,7 +21,8 @@
     "email:retry": "node --experimental-strip-types scripts/retry-emails.mjs",
     "test:email": "node --experimental-strip-types scripts/test-email-service.mjs",
     "test:brevo": "node --experimental-strip-types scripts/test-brevo.mjs",
-    "media:retry": "node --experimental-strip-types scripts/retry-avatar-cleanup.mjs"
+    "media:retry": "node --experimental-strip-types scripts/retry-avatar-cleanup.mjs",
+    "test:seo": "node scripts/test-seo.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

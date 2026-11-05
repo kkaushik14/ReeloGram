@@ -1,4 +1,6 @@
+import { pageMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
+export const metadata = pageMetadata("Terms of use", "Read the terms for using ReeloGram and sharing videos responsibly.", "/terms");
 export default function TermsPage() {
   return (
     <article className="content policy-content">

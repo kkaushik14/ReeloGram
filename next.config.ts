@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // Keep canonical and social metadata in the initial HTML for every crawler.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [{source:"/:path*",headers:[
       {key:"X-Content-Type-Options",value:"nosniff"},

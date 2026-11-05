@@ -10,6 +10,7 @@ import {
   withMediaLocks,
 } from "@/lib/video-media";
 import Video from "@/models/Video";
+import { PUBLIC_VIDEO_FILTER } from "@/lib/seo/config";
 import User from "@/models/User";
 import { limitRequest, rateLimitResponse } from "@/lib/security/rate-limit";
 import { readAuthJson, assertSameOrigin, AuthRequestError } from "@/lib/auth/request";
@@ -28,8 +29,7 @@ export async function GET(req: Request, context: Context) {
     await connectToDatabase();
     const video = await Video.findOne({
       _id: id,
-      deletionPending: { $ne: true },
-      placement: { $ne: "archived" },
+      ...PUBLIC_VIDEO_FILTER,
     });
     if (!video) return errorResponse("Video not found", 404);
     return NextResponse.json((await presentVideos([video]))[0], { headers });

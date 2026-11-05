@@ -1,5 +1,7 @@
+import { pageMetadata } from "@/lib/seo/metadata";
 import Link from "next/link";
 import CookieSettingsButton from "@/app/components/CookieSettingsButton";
+export const metadata = pageMetadata("Privacy policy", "Learn how ReeloGram handles your information, account data, cookies, and uploaded content.", "/privacy");
 export default function PrivacyPage() {
   return (
     <article className="content policy-content">

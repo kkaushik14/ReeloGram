@@ -153,7 +153,7 @@ export default function ReelStream({
   async function share() {
     try {
       await navigator.clipboard.writeText(
-        `${location.origin}/?video=${current.id}`,
+        `${location.origin}/videos/${current.id}`,
       );
       setCopied(true);
     } catch {
