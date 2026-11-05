@@ -9,6 +9,15 @@ export interface InterFUser {
   passwordReset?: { digest: string; expiresAt: Date };
   image?: string;
   imageFileId?: string;
+  emailVerifiedAt?: Date;
+  emailConfirmation?: { digest: string; expiresAt: Date; parentEmail?: string };
+  parent?: {
+    email: string;
+    requestedAt: Date;
+    verifiedAt?: Date;
+    ownerApprovedAt?: Date;
+    confirmation?: { digest: string; expiresAt: Date };
+  };
   email: string;
   password: string;
   _id?: mongoose.Types.ObjectId;
@@ -22,6 +31,32 @@ const userSchema = new Schema<InterFUser>(
     image: { type: String },
     imageFileId: { type: String, select: false },
     dateOfBirth: { type: Date, select: false },
+    emailVerifiedAt: { type: Date, select: false },
+    emailConfirmation: {
+      type: new Schema(
+        { digest: String, expiresAt: Date, parentEmail: String },
+        { _id: false },
+      ),
+      select: false,
+    },
+    parent: {
+      type: new Schema(
+        {
+          email: String,
+          requestedAt: Date,
+          verifiedAt: Date,
+          ownerApprovedAt: Date,
+          confirmation: {
+            type: new Schema(
+              { digest: String, expiresAt: Date },
+              { _id: false },
+            ),
+          },
+        },
+        { _id: false },
+      ),
+      select: false,
+    },
     sessionVersion: { type: Number, default: 0 },
     signInGrant: {
       type: new Schema({ digest: String, expiresAt: Date }, { _id: false }),
@@ -54,7 +89,9 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.index({ "passwordReset.digest": 1 }, { sparse: true });
-userSchema.index({imageFileId:1},{sparse:true});
+userSchema.index({ imageFileId: 1 }, { sparse: true });
+userSchema.index({ "emailConfirmation.digest": 1 }, { sparse: true });
+userSchema.index({ "parent.confirmation.digest": 1 }, { sparse: true });
 
 const User = models?.User || model<InterFUser>("User", userSchema);
 export default User;

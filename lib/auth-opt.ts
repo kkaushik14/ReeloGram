@@ -9,6 +9,7 @@ import { parseCredentials } from "./credentials";
 import { parseEmail, validResetToken } from "./auth/validation";
 import { signInGrantDigest } from "./auth/sign-in-grant";
 import { limitAuth, RateLimitError } from "./auth/rate-limit";
+import { accountAccess } from "./account/access";
 const dummyHash = bcrypt.hashSync("unavailable-account-verification", 10);
 
 export const authOptions: NextAuthOptions = {
@@ -123,13 +124,25 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.sessionVersion = user.sessionVersion ?? 0;
-      } else if (token.id) {
+      }
+      if (token.id) {
         await connectToDatabase();
         if (typeof token.id !== "string" || !/^[a-f0-9]{24}$/i.test(token.id))
           throw new Error("Invalid session");
         const current = await User.findById(token.id)
-          .select("sessionVersion name image email")
-          .lean<{ _id: unknown; sessionVersion?: number; name?: string; image?: string; email: string }>();
+          .select(
+            "sessionVersion name image email +emailVerifiedAt +dateOfBirth +parent",
+          )
+          .lean<{
+            _id: unknown;
+            sessionVersion?: number;
+            name?: string;
+            image?: string;
+            email: string;
+            emailVerifiedAt?: Date;
+            dateOfBirth?: Date;
+            parent?: { verifiedAt?: Date; ownerApprovedAt?: Date };
+          }>();
         if (
           !current ||
           (current.sessionVersion ?? 0) !== (token.sessionVersion ?? 0)
@@ -138,6 +151,7 @@ export const authOptions: NextAuthOptions = {
         const identity = publicUploader(current);
         token.name = identity.name;
         token.picture = identity.image;
+        Object.assign(token, accountAccess(current));
       }
       return token;
     },
@@ -145,6 +159,11 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.emailVerified = token.emailVerified === true;
+        session.user.profileComplete = token.profileComplete === true;
+        session.user.parentRequired = token.parentRequired === true;
+        session.user.parentConfirmed = token.parentConfirmed === true;
+        session.user.canPublish = token.canPublish === true;
       }
 
       return session;

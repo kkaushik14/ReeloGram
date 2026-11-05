@@ -1,4 +1,5 @@
 "use client";
+import FlashMessage from "./FlashNotification";
 import { useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, Play, ShieldCheck, Check } from "lucide-react";
@@ -29,12 +30,7 @@ export default function SettingsForm() {
         </div>
       </div>
       <AccountTabs current="settings" />
-      {saved && (
-        <p className="notice" role="status">
-          <Check size={18} />
-          {saved}
-        </p>
-      )}
+      {saved && <FlashMessage message={saved} variant="success" />}
       {!ready ? (
         <FormSkeleton />
       ) : (

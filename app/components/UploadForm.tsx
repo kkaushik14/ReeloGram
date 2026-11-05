@@ -1,4 +1,6 @@
 "use client";
+import FlashMessage from "./FlashNotification";
+import { useFlash } from "./FlashNotification";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +20,7 @@ import { publishVideo } from "@/lib/uploads/publish";
 import { FormSkeleton } from "./LoadingState";
 import Headline from "./motion/Headline";
 export default function UploadForm() {
+  const flash = useFlash();
   const { data: session, status } = useSession();
   const router = useRouter();
   const [video, setVideo] = useState<File | null>(null);
@@ -30,6 +33,19 @@ export default function UploadForm() {
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState("");
   const uploaded = useRef<{ video?: string; image?: string }>({});
+  const draftOwner = useRef<string | null>(null);
+  const [draft, setDraft] = useState({ title: "", description: "" });
+  useEffect(() => {
+    if (!session?.user.id) return;
+    if (draftOwner.current && draftOwner.current !== session.user.id) {
+      uploaded.current = {};
+      setVideo(null);
+      setImage(null);
+      setDraft({ title: "", description: "" });
+      setError("");
+    }
+    draftOwner.current = session.user.id;
+  }, [session?.user.id]);
   useEffect(() => {
     if (!image) {
       setPreview("");
@@ -117,6 +133,7 @@ export default function UploadForm() {
       setStep("Publishing your video");
       setProgress(100);
       await publishVideo({ title, description, fileId, thumbnailFileId });
+      flash("Your video is published.", "success");
       router.push("/my-videos");
       router.refresh();
     } catch (e) {
@@ -153,6 +170,20 @@ export default function UploadForm() {
           <p>Sign in to upload and share your video.</p>
           <Link className="button primary" href="/login?callbackUrl=/upload">
             Sign in to continue <ArrowUpRight size={16} />
+          </Link>
+        </section>
+      ) : !session.user.canPublish ? (
+        <section className="empty">
+          <h2>Confirm your account before publishing.</h2>
+          <p>
+            {!session.user.emailVerified
+              ? "Confirm your email address from Profile."
+              : !session.user.profileComplete
+                ? "Complete your name and date of birth in Profile."
+                : "Your parent or guardian needs to confirm account management from their email."}
+          </p>
+          <Link className="button primary" href="/profile">
+            Open Profile <ArrowUpRight size={16} />
           </Link>
         </section>
       ) : (
@@ -204,6 +235,13 @@ export default function UploadForm() {
                 Title
                 <input
                   name="title"
+                  value={draft.title}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
                   placeholder="Give your video a name"
                   maxLength={120}
                   required
@@ -217,6 +255,13 @@ export default function UploadForm() {
                 Description
                 <textarea
                   name="description"
+                  value={draft.description}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
                   rows={4}
                   placeholder="What’s the story behind this moment?"
                   maxLength={2000}
@@ -265,11 +310,7 @@ export default function UploadForm() {
                 <p>Please keep this page open until your video is published.</p>
               </div>
             )}
-            {error && (
-              <div className="error-panel" role="alert">
-                {error}
-              </div>
-            )}
+            {error && <FlashMessage message={error} />}
             <div className="form-actions">
               <Link
                 href="/my-videos"

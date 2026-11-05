@@ -1,4 +1,6 @@
 "use client";
+import FlashMessage from "./FlashNotification";
+import { useFlash } from "./FlashNotification";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { completeSignIn } from "@/lib/auth/client";
 import { useRouter } from "next/navigation";
@@ -18,6 +20,7 @@ export default function PasswordRecoveryForm({
   reset?: boolean;
 }) {
   const router = useRouter();
+  const flash = useFlash();
   const tokenRead = useRef(false);
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(!reset);
@@ -63,6 +66,12 @@ export default function PasswordRecoveryForm({
       );
       const data = await response.json();
       if (!response.ok) throw Error(data.error || "Please try again later.");
+      flash(
+        reset
+          ? "Your password is updated."
+          : "If an account uses that email, a reset link will arrive shortly.",
+        "success",
+      );
       if (reset) {
         const completed = await completeSignIn(data);
         if (completed) {
@@ -89,7 +98,8 @@ export default function PasswordRecoveryForm({
         <Link href="/" className="auth-brand" aria-label="ReeloGram home">
           <Aperture size={27} />
           <span>
-            <span className="brand-wordmark">ReeloGram</span><span className="brand-dot">.</span>
+            <span className="brand-wordmark">ReeloGram</span>
+            <span className="brand-dot">.</span>
           </span>
         </Link>
         <h1 id="recovery-title">
@@ -106,11 +116,7 @@ export default function PasswordRecoveryForm({
             <div className="recovery-success">
               <Check size={24} />
             </div>
-            {error && (
-              <p className="error-text" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <FlashMessage message={error} />}
             <p className="recovery-copy" role="status">
               {reset
                 ? "Your password is updated and your previous sign-ins have been closed."
@@ -139,9 +145,7 @@ export default function PasswordRecoveryForm({
           <p role="status">Checking your link…</p>
         ) : reset && !token ? (
           <>
-            <p className="error-text" role="alert">
-              This reset link is invalid or has expired. Request a new link.
-            </p>
+            <FlashMessage message="This reset link is invalid or has expired. Request a new link." />
             <Link href="/forgot-password" className="button primary">
               Request a reset link <ArrowRight size={18} />
             </Link>
@@ -211,11 +215,7 @@ export default function PasswordRecoveryForm({
                   />
                 </label>
               )}
-              {error && (
-                <p className="error-text" role="alert">
-                  {error}
-                </p>
-              )}
+              {error && <FlashMessage message={error} />}
               <button className="button primary" disabled={pending}>
                 {pending
                   ? "Please wait…"

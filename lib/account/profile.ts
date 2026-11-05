@@ -5,4 +5,13 @@ export type AccountProfile = {
   dateOfBirth: string | null;
   image: string | null;
   editable: { name: boolean; dateOfBirth: boolean };
+  emailVerified: boolean;
+  canPublish: boolean;
+  parent: {
+    required: boolean;
+    email: string | null;
+    confirmed: boolean;
+    ownerConfirmed: boolean;
+    emailConfirmed: boolean;
+  };
 };

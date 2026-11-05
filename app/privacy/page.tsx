@@ -29,7 +29,37 @@ export default function PrivacyPage() {
           there is no profile picture, your initials are displayed. You control
           your own videos through Your videos.
         </p>
-        <p>You can set or remove your profile photo from your protected Profile page. Uploaded profile photos are checked and resized, and embedded image metadata is removed before storage. If your name or date of birth is missing, you can add it once in Profile. Saved details and your sign-in email are read-only.</p>
+        <p>
+          You can set or remove your profile photo from your protected Profile
+          page. Uploaded profile photos are checked and resized, and embedded
+          image metadata is removed before storage. If your name or date of
+          birth is missing, you can add it once in Profile. Saved details and
+          your sign-in email are read-only.
+        </p>
+      </section>
+      <section>
+        <h2>Email and parent-managed accounts</h2>
+        <p>
+          Email addresses are checked for formatting, known temporary services
+          and mail delivery records. A confirmation link verifies control of the
+          inbox. Confirmation links expire after 24 hours and work once. Email
+          domains are checked through DNS; addresses are not sent to an external
+          email-verification service.
+        </p>
+        <p>
+          For users under 13, we request a parent or guardian’s email and an
+          explicit management choice. Both the account’s own inbox and the
+          parent’s inbox must confirm the named address before parent management
+          starts. The confirmed parent receives account notifications and
+          password-reset links, which allow access to the account. Parent email
+          addresses and birth dates are private. Analytics remains off for
+          accounts known to belong to users under 13.
+        </p>
+        <p>
+          Email confirmation verifies access to an inbox. It does not
+          independently prove a person’s age or legal relationship to another
+          person.
+        </p>
       </section>
       <section>
         <h2>Storage and delivery</h2>
@@ -58,11 +88,30 @@ export default function PrivacyPage() {
           Sign-in uses authentication cookies. Your browser also stores
           appearance and sidebar preferences. The player can use connection and
           device information exposed by your browser to choose a suitable video
-          quality. Your cookie choice is stored in this browser for up to 180 days.
+          quality. Your cookie choice is stored in this browser for up to 180
+          days.
         </p>
-        <p>Appearance, autoplay and picture-quality preferences are saved in this browser. You can manage them in Settings. Security limits use temporary hashed account and network counters to reduce automated abuse.</p>
-        <p>Optional Google Analytics loads only after you allow analytics cookies. It helps us understand page visits and site usage. Account pages, form details, search queries and password-reset links are excluded from our page-view tracking. Google receives usage and device information when analytics is enabled. Advertising features are disabled. Choosing essential cookies keeps analytics off and leaves sign-in, uploads and playback available.</p>
-        <p>You can withdraw or change your choice at any time using <CookieSettingsButton />. Turning analytics off stops future tracking and removes this site’s Google Analytics cookies. It does not erase data already received by Google.</p>
+        <p>
+          Appearance, autoplay and picture-quality preferences are saved in this
+          browser. You can manage them in Settings. Security limits use
+          temporary hashed account and network counters to reduce automated
+          abuse.
+        </p>
+        <p>
+          Optional Google Analytics loads only after you allow analytics
+          cookies. It helps us understand page visits and site usage. Account
+          pages, form details, search queries and password-reset links are
+          excluded from our page-view tracking. Google receives usage and device
+          information when analytics is enabled. Advertising features are
+          disabled. Choosing essential cookies keeps analytics off and leaves
+          sign-in, uploads and playback available.
+        </p>
+        <p>
+          You can withdraw or change your choice at any time using{" "}
+          <CookieSettingsButton />. Turning analytics off stops future tracking
+          and removes this site’s Google Analytics cookies. It does not erase
+          data already received by Google.
+        </p>
       </section>
       <section>
         <h2>Managing your information</h2>

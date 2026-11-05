@@ -412,3 +412,104 @@
     overflow: visible !important;
   }
 }
+.parent-fields {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 20px;
+  margin: 22px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.parent-fields legend {
+  padding: 0 8px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.parent-fields > p {
+  margin: 0;
+  font-size: 15px;
+}
+.parent-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.parent-fields input[type="email"] {
+  width: 100%;
+  font-size: 16px;
+  padding: 12px;
+}
+.parent-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1.6;
+}
+.parent-check input[type="checkbox"] {
+  appearance: auto;
+  width: 20px !important;
+  height: 20px !important;
+  min-height: 20px;
+  padding: 0;
+  margin-top: 2px;
+  flex: 0 0 20px;
+  accent-color: var(--color-accent);
+}
+.parent-check a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.parent-fields small {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.parent-management {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-divider);
+}
+.parent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-subtle-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.verification-refresh {
+  display: block;
+  margin-top: 20px;
+  min-height: 44px;
+  color: var(--color-accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+.account-verification p strong {
+  overflow-wrap: anywhere;
+}
+.confirmation-card p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  margin-bottom: 24px;
+}
+.confirmation-card > .button {
+  margin-top: 22px;
+}
+.confirmation-card .form-stack > p {
+  margin: 0;
+}
+.account-verification .parent-fields input {
+  background: var(--color-surface-raised);
+}

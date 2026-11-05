@@ -1,0 +1,84 @@
+.flash-notification {
+  position: fixed;
+  inset: 18px 0 auto;
+  margin: 0 auto;
+  width: min(560px, calc(100vw - 32px));
+  box-sizing: border-box;
+  z-index: 2147483000;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 16px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+  font-size: 16px;
+  line-height: 1.55;
+  animation: flash-enter 0.18s ease-out;
+}
+.flash-notification:not(:popover-open) {
+  display: flex;
+}
+.flash-notification:popover-open {
+  display: flex;
+}
+.flash-notification > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-info);
+}
+.flash-notification.flash-error > svg {
+  color: var(--color-danger);
+}
+.flash-notification.flash-success > svg {
+  color: var(--color-success);
+}
+.flash-notification p {
+  margin: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.flash-notification button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin: -4px -4px -4px 0;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+.flash-notification button:hover {
+  background: var(--color-surface-hover);
+}
+.flash-notification::backdrop {
+  background: transparent;
+  pointer-events: none;
+}
+@keyframes flash-enter {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash-notification {
+    animation: none;
+  }
+}
+@media (max-width: 700px) {
+  .flash-notification {
+    top: 12px;
+    padding: 15px;
+    gap: 10px;
+    font-size: 15px;
+  }
+}

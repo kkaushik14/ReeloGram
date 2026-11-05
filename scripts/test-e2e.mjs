@@ -122,20 +122,58 @@ async function signIn(input, expected = 200) {
   return response;
 }
 
+async function confirmationMail(to, kind = "email", offset = 0) {
+  const deadline = Date.now() + 30000;
+  const fragment =
+    kind === "email" ? "/verify-email#token=" : "/confirm-parent#token=";
+  while (Date.now() < deadline) {
+    const found = mail.messages
+      .slice(offset)
+      .find(
+        (message) =>
+          message.to === to && emailBody(message.raw).includes(fragment),
+      );
+    if (found)
+      return emailBody(found.raw).match(/#token=([A-Za-z0-9_-]{43})/)[1];
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw Error("Expected address confirmation email was not delivered");
+}
+async function confirmEmailFor(to) {
+  const token = await confirmationMail(to);
+  await request("/api/auth/confirm", {
+    anonymous: true,
+    data: { kind: "email", token },
+  });
+  return token;
+}
+
 async function assertAuthRedirect(path, destination = "/") {
   const response = await fetch(base + path, {
-    headers: { Cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join("; ") },
+    headers: {
+      Cookie: [...cookies]
+        .map(([name, value]) => `${name}=${value}`)
+        .join("; "),
+    },
     redirect: "manual",
   });
   if (response.status === 307) {
-    assert.equal(new URL(response.headers.get("location"), base).href, base + destination);
+    assert.equal(
+      new URL(response.headers.get("location"), base).href,
+      base + destination,
+    );
   } else {
     // Next.js may have started streaming the route skeleton before checking the session.
     assert.equal(response.status, 200);
     const html = await response.text();
-    const refresh = html.match(/http-equiv="refresh" content="[01];url=([^"]*)"/);
+    const refresh = html.match(
+      /http-equiv="refresh" content="[01];url=([^"]*)"/,
+    );
     assert.ok(refresh, `${path} must redirect an existing session`);
-    assert.equal(new URL(refresh[1].replace(/&amp;/g, "&"), base).href, base + destination);
+    assert.equal(
+      new URL(refresh[1].replace(/&amp;/g, "&"), base).href,
+      base + destination,
+    );
   }
   checks++;
 }
@@ -203,8 +241,12 @@ try {
   await request("/register");
   await request("/login");
   await request("/api/imagekit-auth", { anonymous: true, expected: 401 });
-  await request("/api/account",{anonymous:true,expected:401});
-  await request("/api/account/avatar",{anonymous:true,method:"DELETE",expected:401});
+  await request("/api/account", { anonymous: true, expected: 401 });
+  await request("/api/account/avatar", {
+    anonymous: true,
+    method: "DELETE",
+    expected: 401,
+  });
   await request("/api/videos", {
     anonymous: true,
     data: { title: "Unauthorized" },
@@ -311,48 +353,151 @@ try {
   assert.equal(session.user.email, email);
   assert.equal(session.user.name, "Video Creator");
   assert.ok(session.user.id);
-  const privateProfile=await request("/api/account");
-  assert.match(privateProfile.headers.get("cache-control"),/no-store/);
-  const profile=await privateProfile.json();
-  assert.equal(profile.name,"Video Creator");assert.equal(profile.email,email);assert.equal(profile.dateOfBirth,"1998-01-23");
-  assert.ok(!("password" in profile));assert.ok(!("imageFileId" in profile));
-  assert.deepEqual(profile.editable,{name:false,dateOfBirth:false});
-  await request("/api/account",{method:"PATCH",data:{name:"Changed",dateOfBirth:"2000-01-01",email:otherEmail},expected:400});
-  await request("/api/account",{method:"PATCH",data:{name:"Changed"},expected:409});
-  for(const data of [{}, {name:{$ne:null}}, {dateOfBirth:"2026-02-31"}, {dateOfBirth:"2999-01-01"}])
-    await request("/api/account",{method:"PATCH",data,expected:400});
-  const legacyDb=await mongoose.createConnection(databaseUri).asPromise();
+  assert.equal(session.user.canPublish, false);
+  await request("/api/imagekit-auth", { expected: 403 });
+  const emailProof = await confirmEmailFor(email);
+  await request("/api/auth/confirm", {
+    anonymous: true,
+    data: { kind: "email", token: emailProof },
+    expected: 400,
+  });
+  assert.equal(
+    (await (await request("/api/auth/session")).json()).user.canPublish,
+    true,
+  );
+  const privateProfile = await request("/api/account");
+  assert.match(privateProfile.headers.get("cache-control"), /no-store/);
+  const profile = await privateProfile.json();
+  assert.equal(profile.name, "Video Creator");
+  assert.equal(profile.email, email);
+  assert.equal(profile.dateOfBirth, "1998-01-23");
+  assert.ok(!("password" in profile));
+  assert.ok(!("imageFileId" in profile));
+  assert.deepEqual(profile.editable, { name: false, dateOfBirth: false });
+  await request("/api/account", {
+    method: "PATCH",
+    data: { name: "Changed", dateOfBirth: "2000-01-01", email: otherEmail },
+    expected: 400,
+  });
+  await request("/api/account", {
+    method: "PATCH",
+    data: { name: "Changed" },
+    expected: 409,
+  });
+  for (const data of [
+    {},
+    { name: { $ne: null } },
+    { dateOfBirth: "2026-02-31" },
+    { dateOfBirth: "2999-01-01" },
+  ])
+    await request("/api/account", { method: "PATCH", data, expected: 400 });
+  const legacyDb = await mongoose.createConnection(databaseUri).asPromise();
   try {
     // Simulate a pre-registration-profile account in the isolated test database.
-    await legacyDb.collection("users").updateOne({email},{$unset:{name:1,dateOfBirth:1}});
-    const missing=await(await request("/api/account")).json();
-    assert.equal(missing.name,"");assert.equal(missing.dateOfBirth,null);
-    assert.deepEqual(missing.editable,{name:true,dateOfBirth:true});
-    const submissions=await Promise.all([1,2].map(()=>fetch(base+"/api/account",{method:"PATCH",headers:{Cookie:[...cookies].map(([k,v])=>k+"="+v).join("; "),"Content-Type":"application/json"},body:JSON.stringify({name:"Video Creator",dateOfBirth:"1998-01-23"})})));
-    assert.deepEqual(submissions.map(r=>r.status).sort(),[200,409]);checks+=2;
-    const completed=await(await request("/api/account")).json();
-    assert.equal(completed.name,"Video Creator");assert.equal(completed.dateOfBirth,"1998-01-23");
-    assert.deepEqual(completed.editable,{name:false,dateOfBirth:false});
-    await request("/api/account",{method:"PATCH",data:{dateOfBirth:"2000-01-01"},expected:409});
-    await legacyDb.collection("users").updateOne({email},{$unset:{dateOfBirth:1}});
-    assert.deepEqual((await(await request("/api/account")).json()).editable,{name:false,dateOfBirth:true});
-    await request("/api/account",{method:"PATCH",data:{name:"Overwrite",dateOfBirth:"1998-01-23"},expected:409});
-    assert.equal((await(await request("/api/account")).json()).dateOfBirth,null,"Conflicting completion must not partially write");
-    await request("/api/account",{method:"PATCH",data:{dateOfBirth:"1998-01-23"}});
-    const forged=await fetch(base+"/api/account",{method:"PATCH",headers:{Cookie:[...cookies].map(([k,v])=>k+"="+v).join("; "),"Content-Type":"application/json",Origin:"https://other.invalid"},body:JSON.stringify({name:"Cross origin"})});
-    assert.equal(forged.status,403);checks++;
-  } finally {await legacyDb.close();}
-  assert.equal((await(await request("/api/auth/session")).json()).user.name,"Video Creator");
-  console.log("Missing profile details can be completed once; concurrent writes, replay, partial conflicts and foreign origins are blocked.");
-  assert.equal((await(await request("/api/account?userId=000000000000000000000000")).json()).email,email);
-  await request("/api/account/avatar",{data:{image:"https://untrusted.invalid/avatar.svg"},expected:415});
-  const invalidPhoto=new FormData();invalidPhoto.set("file",new Blob(["not a real image"],{type:"image/png"}),"photo.png");
-  await request("/api/account/avatar",{multipart:invalidPhoto,expected:400});
+    await legacyDb
+      .collection("users")
+      .updateOne({ email }, { $unset: { name: 1, dateOfBirth: 1 } });
+    const missing = await (await request("/api/account")).json();
+    assert.equal(missing.name, "");
+    assert.equal(missing.dateOfBirth, null);
+    assert.deepEqual(missing.editable, { name: true, dateOfBirth: true });
+    const submissions = await Promise.all(
+      [1, 2].map(() =>
+        fetch(base + "/api/account", {
+          method: "PATCH",
+          headers: {
+            Cookie: [...cookies].map(([k, v]) => k + "=" + v).join("; "),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Video Creator",
+            dateOfBirth: "1998-01-23",
+          }),
+        }),
+      ),
+    );
+    assert.deepEqual(submissions.map((r) => r.status).sort(), [200, 409]);
+    checks += 2;
+    const completed = await (await request("/api/account")).json();
+    assert.equal(completed.name, "Video Creator");
+    assert.equal(completed.dateOfBirth, "1998-01-23");
+    assert.deepEqual(completed.editable, { name: false, dateOfBirth: false });
+    await request("/api/account", {
+      method: "PATCH",
+      data: { dateOfBirth: "2000-01-01" },
+      expected: 409,
+    });
+    await legacyDb
+      .collection("users")
+      .updateOne({ email }, { $unset: { dateOfBirth: 1 } });
+    assert.deepEqual((await (await request("/api/account")).json()).editable, {
+      name: false,
+      dateOfBirth: true,
+    });
+    await request("/api/account", {
+      method: "PATCH",
+      data: { name: "Overwrite", dateOfBirth: "1998-01-23" },
+      expected: 409,
+    });
+    assert.equal(
+      (await (await request("/api/account")).json()).dateOfBirth,
+      null,
+      "Conflicting completion must not partially write",
+    );
+    await request("/api/account", {
+      method: "PATCH",
+      data: { dateOfBirth: "1998-01-23" },
+    });
+    const forged = await fetch(base + "/api/account", {
+      method: "PATCH",
+      headers: {
+        Cookie: [...cookies].map(([k, v]) => k + "=" + v).join("; "),
+        "Content-Type": "application/json",
+        Origin: "https://other.invalid",
+      },
+      body: JSON.stringify({ name: "Cross origin" }),
+    });
+    assert.equal(forged.status, 403);
+    checks++;
+  } finally {
+    await legacyDb.close();
+  }
+  assert.equal(
+    (await (await request("/api/auth/session")).json()).user.name,
+    "Video Creator",
+  );
+  console.log(
+    "Missing profile details can be completed once; concurrent writes, replay, partial conflicts and foreign origins are blocked.",
+  );
+  assert.equal(
+    (
+      await (
+        await request("/api/account?userId=000000000000000000000000")
+      ).json()
+    ).email,
+    email,
+  );
+  await request("/api/account/avatar", {
+    data: { image: "https://untrusted.invalid/avatar.svg" },
+    expected: 415,
+  });
+  const invalidPhoto = new FormData();
+  invalidPhoto.set(
+    "file",
+    new Blob(["not a real image"], { type: "image/png" }),
+    "photo.png",
+  );
+  await request("/api/account/avatar", {
+    multipart: invalidPhoto,
+    expected: 400,
+  });
   await request("/email-logo.png", { anonymous: true });
   await assertAuthRedirect("/login");
   await assertAuthRedirect("/register");
   await assertAuthRedirect("/login?callbackUrl=%2Fmy-videos", "/my-videos");
-  await assertAuthRedirect("/login?callbackUrl=https%3A%2F%2Funtrusted.invalid%2F");
+  await assertAuthRedirect(
+    "/login?callbackUrl=https%3A%2F%2Funtrusted.invalid%2F",
+  );
   await assertAuthRedirect("/register?callbackUrl=%2F%256cogin");
   await waitEmail("Welcome to ReeloGram");
   assert.equal(
@@ -413,26 +558,62 @@ try {
       privateKey: process.env.REELOGRAM_PRIVATE_KEY,
       urlEndpoint: process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
     });
-    const avatarBody=new FormData();
-    const {default:sharp}=await import("sharp");
-    const avatarBytes=await sharp({create:{width:32,height:32,channels:3,background:"#6A4D77"}}).png().toBuffer();
-    avatarBody.set("file",new Blob([avatarBytes],{type:"image/png"}),"profile.png");
-    await request("/api/account/avatar",{multipart:avatarBody});
-    const avatarProfile=await(await request("/api/account")).json();
-    assert.ok(avatarProfile.image.startsWith(process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT));
-    const avatarDb=await mongoose.createConnection(databaseUri).asPromise();
+    const avatarBody = new FormData();
+    const { default: sharp } = await import("sharp");
+    const avatarBytes = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: "#6A4D77" },
+    })
+      .png()
+      .toBuffer();
+    avatarBody.set(
+      "file",
+      new Blob([avatarBytes], { type: "image/png" }),
+      "profile.png",
+    );
+    await request("/api/account/avatar", { multipart: avatarBody });
+    const avatarProfile = await (await request("/api/account")).json();
+    assert.ok(
+      avatarProfile.image.startsWith(
+        process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
+      ),
+    );
+    const avatarDb = await mongoose.createConnection(databaseUri).asPromise();
     let avatarId;
-    try{avatarId=(await avatarDb.collection("users").findOne({email})).imageFileId;}finally{await avatarDb.close();}
+    try {
+      avatarId = (await avatarDb.collection("users").findOne({ email }))
+        .imageFileId;
+    } finally {
+      await avatarDb.close();
+    }
     uploaded.push(avatarId);
-    assert.equal((await mediaLibrary.getFileDetails(avatarId)).mime,"image/webp");
-    assert.equal((await(await request("/api/auth/session")).json()).user.image,avatarProfile.image);
-    await request("/api/account/avatar",{method:"DELETE"});
-    assert.equal((await(await request("/api/account")).json()).image,null);
-    const cleanupDeadline=Date.now()+20000;
-    let cleaned=false;
-    while(Date.now()<cleanupDeadline){try{await mediaLibrary.getFileDetails(avatarId);}catch(error){if(error.$ResponseMetadata?.statusCode===404){cleaned=true;break;}throw error;}await new Promise(resolve=>setTimeout(resolve,200));}
-    assert.ok(cleaned,"Removed profile photos must be cleaned from ImageKit");
-    console.log("Private read-only profile, normalized ImageKit photo, session refresh and photo removal passed.");
+    assert.equal(
+      (await mediaLibrary.getFileDetails(avatarId)).mime,
+      "image/webp",
+    );
+    assert.equal(
+      (await (await request("/api/auth/session")).json()).user.image,
+      avatarProfile.image,
+    );
+    await request("/api/account/avatar", { method: "DELETE" });
+    assert.equal((await (await request("/api/account")).json()).image, null);
+    const cleanupDeadline = Date.now() + 20000;
+    let cleaned = false;
+    while (Date.now() < cleanupDeadline) {
+      try {
+        await mediaLibrary.getFileDetails(avatarId);
+      } catch (error) {
+        if (error.$ResponseMetadata?.statusCode === 404) {
+          cleaned = true;
+          break;
+        }
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    assert.ok(cleaned, "Removed profile photos must be cleaned from ImageKit");
+    console.log(
+      "Private read-only profile, normalized ImageKit photo, session refresh and photo removal passed.",
+    );
     let thumbnailFile;
     const savedVideos = [];
     const videoFixture = fixtures.find((fixture) =>
@@ -525,8 +706,14 @@ try {
           ).id,
           saved.id,
         );
-        const replay = await (await request("/api/videos", { data: input })).json();
-        assert.equal(replay.id,saved.id,"A retry after a lost response must return the same post");
+        const replay = await (
+          await request("/api/videos", { data: input })
+        ).json();
+        assert.equal(
+          replay.id,
+          saved.id,
+          "A retry after a lost response must return the same post",
+        );
         const db = await mongoose.createConnection(databaseUri).asPromise();
         try {
           const stored = await db
@@ -774,6 +961,7 @@ try {
       name: "Other Creator",
       dateOfBirth: "1998-01-23",
     });
+    await confirmEmailFor(otherEmail);
     assert.deepEqual(
       (await (await request("/api/videos?mine=true")).json()).videos,
       [],
@@ -895,47 +1083,140 @@ try {
     console.log(
       "Owner-only edits/deletes, shared-thumbnail retention, ImageKit removal, lock contention and partial-delete retry passed.",
     );
-    const frames=Buffer.concat([Buffer.alloc(64*64*3,80),Buffer.alloc(64*64*3,190)]);
-    const gif=await sharp(frames,{raw:{width:64,height:128,channels:3,pageHeight:64}}).gif({delay:[400,400],loop:0}).toBuffer();
-    assert.equal((await sharp(gif,{animated:true}).metadata()).pages,2);
-    const gifFiles=[];
-    for(const fixture of [{bytes:gif,type:"video/mp4",name:"mislabeled.gif.mp4",folder:"/videos"},fixtures[0]]){
-      const auth=await(await request("/api/imagekit-auth")).json();
-      const form=new FormData();form.set("file",new Blob([fixture.bytes],{type:fixture.type}),fixture.name);form.set("fileName",`e2e-${runId}-${fixture.name}`);form.set("folder",fixture.folder);form.set("publicKey",process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
-      for(const key of ["signature","token","expire"])form.set(key,String(auth[key]));
-      const response=await fetch("https://upload.imagekit.io/api/v1/files/upload",{method:"POST",body:form,signal:AbortSignal.timeout(60000)});
-      const file=await response.json();if(file.fileId)uploaded.push(file.fileId);assert.equal(response.status,200);gifFiles.push(file);
+    const frames = Buffer.concat([
+      Buffer.alloc(64 * 64 * 3, 80),
+      Buffer.alloc(64 * 64 * 3, 190),
+    ]);
+    const gif = await sharp(frames, {
+      raw: { width: 64, height: 128, channels: 3, pageHeight: 64 },
+    })
+      .gif({ delay: [400, 400], loop: 0 })
+      .toBuffer();
+    assert.equal((await sharp(gif, { animated: true }).metadata()).pages, 2);
+    const gifFiles = [];
+    for (const fixture of [
+      {
+        bytes: gif,
+        type: "video/mp4",
+        name: "mislabeled.gif.mp4",
+        folder: "/videos",
+      },
+      fixtures[0],
+    ]) {
+      const auth = await (await request("/api/imagekit-auth")).json();
+      const form = new FormData();
+      form.set(
+        "file",
+        new Blob([fixture.bytes], { type: fixture.type }),
+        fixture.name,
+      );
+      form.set("fileName", `e2e-${runId}-${fixture.name}`);
+      form.set("folder", fixture.folder);
+      form.set("publicKey", process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
+      for (const key of ["signature", "token", "expire"])
+        form.set(key, String(auth[key]));
+      const response = await fetch(
+        "https://upload.imagekit.io/api/v1/files/upload",
+        { method: "POST", body: form, signal: AbortSignal.timeout(60000) },
+      );
+      const file = await response.json();
+      if (file.fileId) uploaded.push(file.fileId);
+      assert.equal(response.status, 200);
+      gifFiles.push(file);
     }
-    assert.equal((await mediaLibrary.getFileDetails(gifFiles[0].fileId)).mime,"image/gif");
-    const gifInput={title:`e2e-${runId}-gif`,description:"Synthetic GIF conversion check",fileId:gifFiles[0].fileId,thumbnailFileId:gifFiles[1].fileId};
-    const gifPost=await(await request("/api/videos",{data:gifInput,expected:201})).json();
+    assert.equal(
+      (await mediaLibrary.getFileDetails(gifFiles[0].fileId)).mime,
+      "image/gif",
+    );
+    const gifInput = {
+      title: `e2e-${runId}-gif`,
+      description: "Synthetic GIF conversion check",
+      fileId: gifFiles[0].fileId,
+      thumbnailFileId: gifFiles[1].fileId,
+    };
+    const gifPost = await (
+      await request("/api/videos", { data: gifInput, expected: 201 })
+    ).json();
     assert.ok(new URL(gifPost.videoUrl).pathname.endsWith("/ik-gif-video.mp4"));
-    const {progressiveVideoUrl}=await import("../lib/video-playback.ts");
-    const delivery=progressiveVideoUrl(gifPost.videoUrl,process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,240);
-    let ready=false;const gifDeadline=Date.now()+90000;
-    while(Date.now()<gifDeadline){const response=await fetch(delivery,{headers:{Range:"bytes=0-0"},redirect:"manual",signal:AbortSignal.timeout(10000)});const mime=response.headers.get("content-type")||"";await response.body?.cancel();if([200,206].includes(response.status)&&mime.startsWith("video/")){ready=true;break;}assert.equal(response.status,202,"GIF conversion must be pending or a playable video");await new Promise(resolve=>setTimeout(resolve,1000));}
-    assert.ok(ready,"ImageKit must serve converted GIF as playable video");checks++;
-    assert.equal((await(await request("/api/videos",{data:gifInput})).json()).id,gifPost.id);
-    await request("/api/videos",{data:{...gifInput,title:"Changed retry"},expected:409});
-    await request(`/api/videos/${gifPost.id}`,{method:"DELETE",expected:204});
-    console.log("Mislabeled animated GIF uploads publish as ImageKit MP4, become playable, retry without duplication and delete cleanly.");
+    const { progressiveVideoUrl } = await import("../lib/video-playback.ts");
+    const delivery = progressiveVideoUrl(
+      gifPost.videoUrl,
+      process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
+      240,
+    );
+    let ready = false;
+    const gifDeadline = Date.now() + 90000;
+    while (Date.now() < gifDeadline) {
+      const response = await fetch(delivery, {
+        headers: { Range: "bytes=0-0" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(10000),
+      });
+      const mime = response.headers.get("content-type") || "";
+      await response.body?.cancel();
+      if ([200, 206].includes(response.status) && mime.startsWith("video/")) {
+        ready = true;
+        break;
+      }
+      assert.equal(
+        response.status,
+        202,
+        "GIF conversion must be pending or a playable video",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    assert.ok(ready, "ImageKit must serve converted GIF as playable video");
+    checks++;
+    assert.equal(
+      (await (await request("/api/videos", { data: gifInput })).json()).id,
+      gifPost.id,
+    );
+    await request("/api/videos", {
+      data: { ...gifInput, title: "Changed retry" },
+      expected: 409,
+    });
+    await request(`/api/videos/${gifPost.id}`, {
+      method: "DELETE",
+      expected: 204,
+    });
+    console.log(
+      "Mislabeled animated GIF uploads publish as ImageKit MP4, become playable, retry without duplication and delete cleanly.",
+    );
   } else {
     console.log(
       "Live ImageKit uploads skipped. Enable explicitly with: npm run test:e2e -- --imagekit",
     );
   }
 
-  if(liveUploads){
-    const prior=[...cookies];
-    await signIn({email:otherEmail,password});
-    const cookie=[...cookies].map(([name,value])=>`${name}=${value}`).join("; ");
-    const quota=await Promise.all(Array.from({length:21},()=>fetch(base+"/api/imagekit-auth",{headers:{Cookie:cookie}})));
-    assert.equal(quota.filter(response=>response.status===200).length,20);
-    assert.equal(quota.filter(response=>response.status===429).length,1);
-    assert.ok(Number(quota.find(response=>response.status===429).headers.get("retry-after"))>0);
-    checks+=21;
-    cookies.clear();for(const [key,value]of prior)cookies.set(key,value);
-    console.log("Upload authorization quota is atomic and returns 429 with Retry-After.");
+  if (liveUploads) {
+    const prior = [...cookies];
+    await signIn({ email: otherEmail, password });
+    const cookie = [...cookies]
+      .map(([name, value]) => `${name}=${value}`)
+      .join("; ");
+    const quota = await Promise.all(
+      Array.from({ length: 21 }, () =>
+        fetch(base + "/api/imagekit-auth", { headers: { Cookie: cookie } }),
+      ),
+    );
+    assert.equal(
+      quota.filter((response) => response.status === 200).length,
+      20,
+    );
+    assert.equal(quota.filter((response) => response.status === 429).length, 1);
+    assert.ok(
+      Number(
+        quota
+          .find((response) => response.status === 429)
+          .headers.get("retry-after"),
+      ) > 0,
+    );
+    checks += 21;
+    cookies.clear();
+    for (const [key, value] of prior) cookies.set(key, value);
+    console.log(
+      "Upload authorization quota is atomic and returns 429 with Retry-After.",
+    );
   }
 
   const attemptsAtOnce = await Promise.all(
@@ -971,9 +1252,7 @@ try {
   console.log(
     "Concurrent account throttling, bounded request bodies and malformed authorization checks passed.",
   );
-  const recoveryDb = await (
-    await import("mongoose")
-  ).default
+  const recoveryDb = await (await import("mongoose")).default
     .createConnection(databaseUri)
     .asPromise();
   try {
@@ -1078,7 +1357,7 @@ try {
       "Password reset invalidates previous sessions",
     );
     await request("/api/imagekit-auth", { expected: 401 });
-    await request("/api/account",{expected:401});
+    await request("/api/account", { expected: 401 });
     await completeSignIn(resetEmail, resetHandoff.signInToken);
     assert.equal(
       (await (await request("/api/auth/session")).json()).user.email,
@@ -1108,6 +1387,135 @@ try {
       .collection("users")
       .deleteOne({ email: `reset-${runId}@example.invalid` });
     await recoveryDb.close();
+  }
+  if (!configuredDatabase) {
+    const childEmail = `child-${runId}@example.invalid`,
+      parentEmail = `parent-${runId}@example.invalid`;
+    const child = {
+      email: childEmail,
+      password,
+      name: "Young Creator",
+      dateOfBirth: "2018-04-12",
+    };
+    await request("/api/auth/register", { data: child, expected: 400 });
+    await request("/api/auth/register", {
+      data: { ...child, parentEmail: childEmail, parentManaged: true },
+      expected: 400,
+    });
+    await request("/api/auth/register", {
+      data: { ...child, parentEmail, parentManaged: true },
+      expected: 201,
+    });
+    const parentToken = await confirmationMail(parentEmail, "parent");
+    await signIn({ email: childEmail, password });
+    const pending = await (await request("/api/account")).json();
+    assert.deepEqual(pending.parent, {
+      required: true,
+      email: parentEmail,
+      confirmed: false,
+      ownerConfirmed: false,
+      emailConfirmed: false,
+    });
+    assert.equal(pending.canPublish, false);
+    assert.ok(!JSON.stringify(pending).includes(parentToken));
+    await request("/api/imagekit-auth", { expected: 403 });
+    await request("/api/videos", {
+      data: { title: "Blocked until parent confirms" },
+      expected: 403,
+    });
+    await request("/api/auth/confirm", {
+      anonymous: true,
+      data: { kind: "parent", token: parentToken },
+      expected: 400,
+    });
+    await request("/api/auth/confirm", {
+      anonymous: true,
+      data: { kind: "email", token: parentToken },
+      expected: 400,
+    });
+    await request("/api/auth/confirm", {
+      anonymous: true,
+      data: { kind: "parent", token: parentToken, accepted: true },
+    });
+    await request("/api/auth/confirm", {
+      anonymous: true,
+      data: { kind: "parent", token: parentToken, accepted: true },
+      expected: 400,
+    });
+    assert.equal(
+      (await (await request("/api/auth/session")).json()).user.canPublish,
+      false,
+      "Parent confirmation alone must not grant recovery or publishing access",
+    );
+    const beforeOwnerApproval = mail.messages.length;
+    await request("/api/auth/forgot-password", { data: { email: childEmail } });
+    await waitEmail("Reset your ReeloGram password", beforeOwnerApproval);
+    assert.ok(
+      !mail.messages
+        .slice(beforeOwnerApproval)
+        .some(
+          (message) =>
+            message.to === parentEmail &&
+            emailBody(message.raw).includes("/reset-password#token="),
+        ),
+      "An unapproved parent must never receive a reset link",
+    );
+    await confirmEmailFor(childEmail);
+    assert.equal(
+      (await (await request("/api/account")).json()).parent.confirmed,
+      true,
+    );
+    assert.equal(
+      (await (await request("/api/auth/session")).json()).user.canPublish,
+      true,
+    );
+    await request("/api/account/verification", {
+      data: {
+        kind: "parent",
+        parentEmail: `other-${parentEmail}`,
+        parentManaged: true,
+      },
+      expected: 409,
+    });
+    const offset = mail.messages.length;
+    await request("/api/auth/forgot-password", { data: { email: childEmail } });
+    const deadline = Date.now() + 30000;
+    let childReset, parentReset;
+    while (Date.now() < deadline) {
+      for (const message of mail.messages.slice(offset)) {
+        const text = emailBody(message.raw);
+        if (text.includes("/reset-password#token=")) {
+          if (message.to === childEmail) childReset = text;
+          if (message.to === parentEmail) parentReset = text;
+        }
+      }
+      if (childReset && parentReset) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert.ok(
+      childReset && parentReset,
+      "Both child and confirmed parent must receive reset links",
+    );
+    assert.equal(
+      childReset.match(/#token=([A-Za-z0-9_-]{43})/)[1],
+      parentReset.match(/#token=([A-Za-z0-9_-]{43})/)[1],
+    );
+    checks++;
+    const db = await mongoose.createConnection(databaseUri).asPromise();
+    try {
+      const record = await db
+        .collection("users")
+        .findOne({ email: childEmail });
+      assert.ok(!record.parent.confirmation);
+      assert.ok(record.parent.verifiedAt);
+      assert.ok(!record.emailConfirmation);
+      assert.ok(record.emailVerifiedAt);
+    } finally {
+      await db.close();
+    }
+    console.log(
+      "Verified email, under-13 parent confirmation, cross-purpose/replay protection and parent reset copies passed.",
+    );
   }
   const { csrfToken } = await (await request("/api/auth/csrf")).json();
   await request("/api/auth/signout", { form: { csrfToken, json: "true" } });

@@ -104,7 +104,6 @@ If Node reports a missing Homebrew dynamic library, use an installed working Nod
 
 The resource banner rotates between Pexels, Pixabay, Coverr and Mixkit every seven seconds, pauses on hover/focus or when the page is hidden, and has manual selection and pause controls. Reduced-motion preferences stop the banner and disable automatic Reels playback. Only the current Reel plays; hidden/offscreen players pause. The existing optional cube animation component remains available but is no longer mounted on Discover. No API, upload, or account behavior is driven by animation.
 
-
 ## Curated Pexels collection
 
 `npm run seed:pexels` previews three reviewed clips. `npm run seed:pexels -- --apply` uploads the videos and covers to the configured ImageKit account and saves their records in the configured MongoDB database. It is a manual import, never an application-startup job. A unique source ID makes repeat runs skip existing clips. Files created by a failed import are cleaned up. Credentials stay in local environment files.
@@ -117,7 +116,6 @@ Feed filters: `q` searches titles, descriptions and credited creators (160 chara
 
 Login and registration place a looping, muted preview of a real ImageKit video on the left and the form on the right. Mobile screens show only the form and decorative background; the preview component does not fetch or mount a video there. Playback has a pause control, suspends while the page is hidden, and resumes when visible. Password visibility, validation, account creation and callback routing remain functional.
 
-
 ## Featured-source imports
 
 `npm run seed:featured` previews the full collection; `npm run seed:featured -- --apply` uploads the reviewed originals and covers to ImageKit and saves their delivery URLs, file IDs, creator, source page and license in MongoDB. Repeat runs skip existing records. The frontend serves all video and cover files from ImageKit; no downloaded media is placed in `public` or served from disk. A downloaded file used during source review is not a runtime dependency.
@@ -125,7 +123,6 @@ Login and registration place a looping, muted preview of a real ImageKit video o
 The source manifest is `scripts/featured-clips.mjs`. Newly added providers use namespaced source IDs to avoid collisions with one another. Source filters, logos and credit text support Pexels, Pixabay, Coverr and Mixkit. Community filtering excludes editorial imports. These are credited viewing examples inside ReeloGram, with no stock-download marketplace or invented uploader identities. Original license links remain attached to every imported record.
 
 `app/refinements.css` adds a slate dark palette inspired by the layered surfaces in [Radix Colors](https://www.radix-ui.com/colors) while preserving the supplied design-token file and the compact Reels layout. The resource banner plays four dedicated, credited ImageKit clips. These records have `placement: hero` and are excluded from Browse/Reels. Only the current banner video is mounted, with quality chosen by the shared ImageKit playback policy. Rotation and playback can be paused; reduced-motion preferences require manual playback.
-
 
 `GET /api/showcase` provides the banner-only clips. Authentication previews use one of these clips instead of reusing the public feed. The complete Reels viewer expands into a native modal dialog, bounded inside the viewport, retaining its scrolling feed, left controls, right details and incremental loading. Its X button is the only dismiss control: Escape and backdrop clicks do not dismiss it. The same video elements remain mounted when expanding/collapsing, preserving the selected Reel, playback time, mute and pause settings. A 32×18 canvas samples the active video at most five times per second to create the blurred ambient light, without decoding a second background video. Only the active Reel plays in either presentation.
 
@@ -188,6 +185,16 @@ On mobile, the hero heading and Explore Reels action sit above the video. Credit
 ### Checking the Google tag
 
 The configured GA4 ID is `G-B6PDWD34WF`. The tag remains fully blocked until analytics is allowed. To test it, open the Production domain, choose Cookie settings → Allow analytics, and then use Google's Tag Assistant in that accepted browser session. A scanner that never grants consent may report no tag; this is expected for [basic consent mode](https://support.google.com/analytics/answer/10000067). The single async loader is inserted into the document head after consent, and records its load result in `data-analytics-ready` on the script element. Authentication, Profile and Settings pages remain excluded. Essential-only choice disables tracking and removes the site's analytics cookies. Analytics cookies use Secure and SameSite=Lax; login cookies additionally use HttpOnly.
+
+## Account confirmation and parent management
+
+New addresses use local MailChecker syntax/disposable-domain checks and cached DNS mail routing checks. No address is sent to a validation API, and SMTP mailbox probes are not used: Vercel blocks outbound port 25 and SMTP acceptance does not prove inbox ownership. Single-use, purpose-bound confirmation links expire after 24 hours. Existing accounts can request confirmation from Profile. Upload authorization, public avatar uploads and publishing require confirmed email and completed name/birthday fields; DNS checks never run in the publishing path.
+
+Users under 13 must supply a separate parent email and choose parent management. Both the account inbox (approving the exact named parent address) and parent inbox must confirm before the role activates. Until then, no parent copies or password-reset links are sent and uploads remain blocked. Confirmed parent addresses cannot be replaced through the profile API. Pending addresses can be corrected, invalidating older links. Parent copies are routed through the reusable account email module. Turning 13 stops parent routing; private parent information is never included in feed DTOs. Inbox confirmation is not proof of adult identity or legal guardianship; the operator must assess jurisdiction-specific child-consent requirements before offering public child accounts.
+
+`FlashProvider` supplies one reusable top-of-screen notification with an information icon, close button and five-second lifetime. It uses the browser top layer above dialogs, keeps redirects working, preserves a short-lived message across full-document navigation, and focuses failed form validation without clearing inputs. Retry buttons, consent choices and persistent account-verification status remain available after the notification disappears.
+
+The isolated development E2E server accepts only its reserved `example.invalid` fixture domain without DNS checks. This exception requires development mode and the dedicated E2E build setting and is disabled in production.
 
 ## Source code rights
 

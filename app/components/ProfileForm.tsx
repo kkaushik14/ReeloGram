@@ -1,13 +1,17 @@
 "use client";
+import FlashMessage from "./FlashNotification";
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Camera, ShieldCheck, Check } from "lucide-react";
+import { Camera, ShieldCheck } from "lucide-react";
 import AccountTabs from "./AccountTabs";
 import UploaderBadge from "./UploaderBadge";
 import { FormSkeleton } from "./LoadingState";
 import { AVATAR_MAX_BYTES, type AccountProfile } from "@/lib/account/profile";
+import AccountVerification from "./AccountVerification";
+import ParentFields from "./ParentFields";
+import { isUnder13 } from "@/lib/account/age";
 
 export default function ProfileForm() {
   const { data: session, update } = useSession();
@@ -20,6 +24,8 @@ export default function ProfileForm() {
   const [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [details, setDetails] = useState({ name: "", dateOfBirth: "" });
+  const [parentEmail, setParentEmail] = useState("");
+  const [parentManaged, setParentManaged] = useState(false);
   const incomplete =
     !!profile && (profile.editable.name || profile.editable.dateOfBirth);
   const input = useRef<HTMLInputElement>(null);
@@ -117,6 +123,9 @@ export default function ProfileForm() {
     setNotice("");
     try {
       const body = {
+        ...(profile.editable.dateOfBirth && isUnder13(details.dateOfBirth)
+          ? { parentEmail, parentManaged }
+          : {}),
         ...(profile.editable.name ? { name: details.name } : {}),
         ...(profile.editable.dateOfBirth
           ? { dateOfBirth: details.dateOfBirth }
@@ -157,8 +166,8 @@ export default function ProfileForm() {
       </div>
       <AccountTabs current="profile" />
       {error && (
-        <div className="error-panel" role="alert">
-          {error}
+        <div>
+          <FlashMessage message={error} />
           {!profile && !loading && (
             <button
               className="button secondary"
@@ -173,17 +182,13 @@ export default function ProfileForm() {
           )}
         </div>
       )}
-      {notice && (
-        <p className="notice" role="status">
-          <Check size={18} />
-          {notice}
-        </p>
-      )}
+      {notice && <FlashMessage message={notice} variant="success" />}
       {loading ? (
         <FormSkeleton />
       ) : (
         profile && (
           <>
+            <AccountVerification profile={profile} refresh={load} />
             <section
               className="account-panel profile-photo-panel"
               aria-labelledby="profile-photo-title"
@@ -224,7 +229,7 @@ export default function ProfileForm() {
                       aria-label="Choose a profile photo"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
-                      disabled={busy}
+                      disabled={busy || !profile.canPublish}
                       onChange={(event) => select(event.target.files?.[0])}
                     />
                   </label>
@@ -329,6 +334,16 @@ export default function ProfileForm() {
                     />
                   </label>
                 </div>
+                {profile.editable.dateOfBirth &&
+                  isUnder13(details.dateOfBirth) && (
+                    <ParentFields
+                      email={parentEmail}
+                      accepted={parentManaged}
+                      onEmail={setParentEmail}
+                      onAccepted={setParentManaged}
+                      disabled={busy}
+                    />
+                  )}
                 {incomplete && (
                   <button
                     className="button primary profile-details-save"

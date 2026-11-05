@@ -7,7 +7,8 @@ import { limitRequest, rateLimitResponse } from "@/lib/security/rate-limit";
 import { readAuthJson, authFailure } from "@/lib/auth/request";
 import { parseFeedQuery, parseVideoInput } from "@/lib/video-input";
 import User from "@/models/User";
-import { queueEmail, deliverQueuedEmails } from "@/lib/email/outbox";
+import { queueAccountEmail } from "@/lib/email/account";
+import { publishingAccessError } from "@/lib/account/access";
 import { videoPostedEmail } from "@/lib/email/templates";
 import { appOrigin } from "@/lib/email/transport";
 import { prepareVideoPlayback } from "@/lib/video-preparation";
@@ -134,6 +135,9 @@ export async function POST(req: Request) {
       { status: 401 },
     );
   let body: unknown;
+  const accessError = publishingAccessError(session.user);
+  if (accessError)
+    return NextResponse.json({ error: accessError }, { status: 403, headers });
   try {
     await limitRequest("publish", session.user.id, req.headers);
     body = await readAuthJson(req);
@@ -238,7 +242,8 @@ export async function POST(req: Request) {
                 "email",
               );
               if (owner) {
-                const id = await queueEmail(
+                await queueAccountEmail(
+                  session.user.id,
                   videoPostedEmail(
                     owner.email,
                     presented.title,
@@ -246,7 +251,6 @@ export async function POST(req: Request) {
                   ),
                   `video-posted:${presented.id}`,
                 );
-                await deliverQueuedEmails(id);
               }
             } catch {
               console.error("Video confirmation email could not be queued");

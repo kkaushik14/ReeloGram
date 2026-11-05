@@ -9,7 +9,7 @@ import {
   AuthRequestError,
 } from "@/lib/auth/request";
 import { limitAuth } from "@/lib/auth/rate-limit";
-import { queueEmail, deliverQueuedEmails } from "@/lib/email/outbox";
+import { queueAccountEmail } from "@/lib/email/account";
 import { passwordChangedEmail } from "@/lib/email/templates";
 import { createSignInGrant } from "@/lib/auth/sign-in-grant";
 import User from "@/models/User";
@@ -58,11 +58,11 @@ export async function POST(request: Request) {
       );
     after(async () => {
       try {
-        const id = await queueEmail(
+        await queueAccountEmail(
+          String(updated._id),
           passwordChangedEmail(updated.email),
           `password-changed:${updated.id}:${updated.sessionVersion}`,
         );
-        await deliverQueuedEmails(id);
       } catch {
         console.error("Password change notice could not be queued");
       }

@@ -24,6 +24,9 @@ export const REQUEST_LIMITS = {
   mutation: [80, 240, 3600],
   profileRead: [90, 300, 300],
   profileWrite: [20, 100, 600],
+  verification: [3, 30, 3600],
+  parentMail: [3, 30, 3600],
+  confirmation: [20, 100, 900],
   avatar: [10, 40, 600],
 } as const;
 

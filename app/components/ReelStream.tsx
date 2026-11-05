@@ -1,4 +1,5 @@
 "use client";
+import FlashMessage from "./FlashNotification";
 import {
   useEffect,
   useLayoutEffect,
@@ -22,7 +23,7 @@ import {
 } from "lucide-react";
 import VideoCredit from "./VideoCredit";
 import AdaptiveVideo from "./AdaptiveVideo";
-import {useBrowserPreferences} from "./useBrowserPreferences";
+import { useBrowserPreferences } from "./useBrowserPreferences";
 import UploaderBadge from "./UploaderBadge";
 import type { FeedVideo } from "./VideoFeed";
 
@@ -48,7 +49,7 @@ export default function ReelStream({
   onEdit,
   onDelete,
 }: Props) {
-  const {preferences,ready:preferencesReady}=useBrowserPreferences();
+  const { preferences, ready: preferencesReady } = useBrowserPreferences();
   const root = useRef<HTMLDivElement>(null);
   const player = useRef<HTMLVideoElement | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
@@ -76,13 +77,13 @@ export default function ReelStream({
   const current = videos[index];
   useEffect(() => {
     const media = matchMedia("(prefers-reduced-motion:reduce)");
-    if(preferencesReady)setPaused(media.matches || !preferences.autoplay);
+    if (preferencesReady) setPaused(media.matches || !preferences.autoplay);
     const change = () => {
       if (media.matches) setPaused(true);
     };
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);
-  }, [preferencesReady,preferences.autoplay]);
+  }, [preferencesReady, preferences.autoplay]);
   useEffect(() => {
     const container = root.current;
     if (!container) return;
@@ -416,16 +417,8 @@ export default function ReelStream({
           {blocked && (
             <p className="reel-help">Press play to start this video.</p>
           )}
-          {error && (
-            <p className="error-text" role="alert">
-              {error}
-            </p>
-          )}
-          {copied && (
-            <p className="muted" role="status">
-              Link copied
-            </p>
-          )}
+          {error && <FlashMessage message={error} />}
+          {copied && <FlashMessage message="Link copied" variant="success" />}
           <p className="reel-help">
             Scroll or use <kbd>↑</kbd> <kbd>↓</kbd>
           </p>

@@ -1,10 +1,19 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import FlashMessage from "./FlashNotification";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { Aperture, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { parseProfile, passwordError } from "@/lib/auth/validation";
+import { parseProfile, parseEmail, passwordError } from "@/lib/auth/validation";
+import { isUnder13 } from "@/lib/account/age";
+import ParentFields from "./ParentFields";
+import { useFlash } from "./FlashNotification";
 import { completeSignIn } from "@/lib/auth/client";
 import { safeAuthDestination } from "@/lib/auth/navigation";
 import AuthShowcase from "./AuthShowcase";
@@ -12,13 +21,15 @@ import { AuthSkeleton } from "./LoadingState";
 
 type Step = "email" | "login" | "profile" | "password";
 export default function AuthForm({ register = false }: { register?: boolean }) {
-  const router = useRouter();
+  const flash = useFlash();
   const { status } = useSession();
   const redirecting = useRef(false);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
+  const [parentEmail, setParentEmail] = useState("");
+  const [parentManaged, setParentManaged] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [visible, setVisible] = useState(false);
@@ -56,14 +67,13 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
   const finishSignIn = useCallback(() => {
     if (redirecting.current) return;
     redirecting.current = true;
-    router.replace(
+    window.location.replace(
       safeAuthDestination(
         new URLSearchParams(location.search).get("callbackUrl"),
         location.origin,
       ),
     );
-    router.refresh();
-  }, [router]);
+  }, []);
   useEffect(() => {
     if (status === "authenticated") finishSignIn();
   }, [status, finishSignIn]);
@@ -92,6 +102,14 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
           dateOfBirth: fields.get("dateOfBirth"),
         });
         if (!profile) throw Error("Enter your name and a valid date of birth.");
+        if (
+          isUnder13(profile.dateOfBirth) &&
+          (!parseEmail(fields.get("parentEmail")) ||
+            fields.get("parentManaged") !== "on")
+        )
+          throw Error(
+            "Add your parent’s email and confirm that a parent or guardian will manage this account.",
+          );
         setName(profile.name);
         setDob(profile.dateOfBirth.toISOString().slice(0, 10));
         setStep("password");
@@ -103,7 +121,13 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
         const response = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, name, dateOfBirth: dob, password }),
+          body: JSON.stringify({
+            email,
+            name,
+            dateOfBirth: dob,
+            password,
+            ...(isUnder13(dob) ? { parentEmail, parentManaged } : {}),
+          }),
         });
         const data = await response.json();
         if (response.status === 409) {
@@ -116,6 +140,10 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
           throw Error(
             data.error || "We couldn’t create your account. Please try again.",
           );
+        flash(
+          "Your account is ready. Confirm your email before publishing.",
+          "success",
+        );
         const completed = await completeSignIn(data);
         setPassword("");
         setConfirmation("");
@@ -142,6 +170,8 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
         finishSignIn();
       }
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Parent email:"))
+        setStep("profile");
       setError(error instanceof Error ? error.message : "Please try again.");
     } finally {
       setPending(false);
@@ -162,7 +192,8 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
         <Link href="/" className="auth-brand" aria-label="ReeloGram home">
           <Aperture size={27} />
           <span>
-            <span className="brand-wordmark">ReeloGram</span><span className="brand-dot">.</span>
+            <span className="brand-wordmark">ReeloGram</span>
+            <span className="brand-dot">.</span>
           </span>
         </Link>
         {step !== "email" && (
@@ -180,11 +211,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
           {title}
         </h1>
         {step !== "email" && <p className="auth-email">{email}</p>}
-        {notice && (
-          <p className="notice" role="status">
-            {notice}
-          </p>
-        )}
+        {notice && <FlashMessage message={notice} variant="info" />}
         <form onSubmit={submit} className="form-stack" aria-busy={pending}>
           {step === "email" && (
             <label>
@@ -230,11 +257,21 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                   disabled={pending}
                   value={dob}
                   onChange={(event) => setDob(event.target.value)}
+                  onInput={(event) => setDob(event.currentTarget.value)}
                 />
                 <small id="birthday-help">
                   Your date of birth stays private.
                 </small>
               </label>
+              {isUnder13(dob) && (
+                <ParentFields
+                  email={parentEmail}
+                  accepted={parentManaged}
+                  onEmail={setParentEmail}
+                  onAccepted={setParentManaged}
+                  disabled={pending}
+                />
+              )}
             </>
           )}
           {(step === "login" || step === "password") && (
@@ -297,11 +334,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
               )}
             </>
           )}
-          {error && (
-            <p role="alert" className="error-text">
-              {error}
-            </p>
-          )}
+          {error && <FlashMessage message={error} />}
           {step === "login" && (
             <Link className="forgot-link" href="/forgot-password">
               Forgot password?

@@ -15,7 +15,11 @@ export default function TermsPage() {
         <p>
           Use accurate account details and keep your password private. You are
           responsible for activity under your account. If you lose access, use
-          the password recovery option on the sign-in screen.
+          the password recovery option on the sign-in screen. Confirm your email
+          and complete your profile before publishing. Accounts for users under
+          13 require parent management confirmed by both email addresses. A
+          confirmed parent receives account messages and password-reset links
+          and can manage access to the account.
         </p>
       </section>
       <section>

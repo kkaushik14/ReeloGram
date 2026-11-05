@@ -1,4 +1,5 @@
 "use client";
+import FlashMessage from "./FlashNotification";
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
@@ -348,19 +349,7 @@ export default function VideoFeed({
       {!mine && !reels && (
         <ResourceHero suspended={!!watch || !!edit || !!remove} />
       )}
-      {notice && (
-        <div className="notice" role="status">
-          <Check size={18} />
-          {notice}
-          <button
-            className="icon-button"
-            aria-label="Dismiss message"
-            onClick={() => setNotice("")}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      <FlashMessage message={notice} variant="success" />
       <section aria-label="Videos" aria-busy={loading}>
         <div className="feed-toolbar">
           <div className="section-title">
@@ -513,8 +502,8 @@ export default function VideoFeed({
         ) : (
           <>
             {error && (
-              <div role="alert" className="error-panel">
-                <p>{error}</p>
+              <div>
+                <FlashMessage message={error} />
                 <button
                   className="button secondary"
                   onClick={() =>
@@ -738,10 +727,7 @@ export default function VideoFeed({
             </p>
           )}
           {playbackError && (
-            <p className="error-panel" role="alert">
-              This video can’t play in your browser right now. Try opening it in
-              another browser or come back later.
-            </p>
+            <FlashMessage message="This video can’t play in your browser right now. Try another browser or come back later." />
           )}
           {watch.uploader && <UploaderBadge uploader={watch.uploader} />}
           <p className="watch-description">{watch.description}</p>
@@ -760,14 +746,11 @@ export default function VideoFeed({
               }
             }}
           >
+            {copied && <FlashMessage message="Link copied" variant="success" />}
             {copied ? <Check size={16} /> : <Copy size={16} />}{" "}
             {copied ? "Link copied" : "Copy link"}
           </button>
-          {shareError && (
-            <p className="error-text" role="alert">
-              {shareError}
-            </p>
-          )}
+          {shareError && <FlashMessage message={shareError} />}
         </Modal>
       )}
       {edit && (
@@ -800,11 +783,7 @@ export default function VideoFeed({
                 rows={4}
               />
             </label>
-            {actionError && (
-              <p className="error-text" role="alert">
-                {actionError}
-              </p>
-            )}
+            {actionError && <FlashMessage message={actionError} />}
             <div className="form-actions">
               <button
                 type="button"
@@ -837,11 +816,7 @@ export default function VideoFeed({
             “{remove.title}” will be removed, along with its video file. This
             can’t be undone.
           </p>
-          {actionError && (
-            <p className="error-text" role="alert">
-              {actionError}
-            </p>
-          )}
+          {actionError && <FlashMessage message={actionError} />}
           <div className="form-actions">
             <button
               className="button secondary"

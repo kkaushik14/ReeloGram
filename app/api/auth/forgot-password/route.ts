@@ -8,7 +8,8 @@ import {
   AuthRequestError,
 } from "@/lib/auth/request";
 import { limitAuth } from "@/lib/auth/rate-limit";
-import { appOrigin, emailConfigured, sendEmail } from "@/lib/email/transport";
+import { appOrigin, emailConfigured } from "@/lib/email/transport";
+import { sendAccountEmail } from "@/lib/email/account";
 import { passwordResetEmail } from "@/lib/email/templates";
 import User from "@/models/User";
 export async function POST(request: Request) {
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
         );
         if (!user) return;
         try {
-          await sendEmail(
+          await sendAccountEmail(
+            String(user._id),
             passwordResetEmail(
               email,
               `${origin}/reset-password#token=${token}`,

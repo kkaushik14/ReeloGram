@@ -17,6 +17,7 @@ import {
   deleteMediaFile,
 } from "@/lib/video-media";
 import User from "@/models/User";
+import { publishingAccessError } from "@/lib/account/access";
 
 const headers = { "Cache-Control": "private, no-store" };
 async function updateAvatar(req: Request, remove: boolean) {
@@ -30,6 +31,9 @@ async function updateAvatar(req: Request, remove: boolean) {
         { status: 401, headers },
       );
     assertSameOrigin(req);
+    const accessError = publishingAccessError(session.user);
+    if (!remove && accessError)
+      return Response.json({ error: accessError }, { status: 403, headers });
     await limitRequest("avatar", session.user.id, req.headers);
     const bytes = remove ? null : await readAvatar(req);
     return await withMediaLocks([`profile:${session.user.id}`], async () => {
