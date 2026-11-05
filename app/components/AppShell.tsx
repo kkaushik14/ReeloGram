@@ -189,6 +189,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               href === "/profile" || href === "/settings" ? AccountLink : Link;
             return (
               <NavLink
+                {...(NavLink === Link ? { prefetch: false } : {})}
                 key={href}
                 href={href}
                 aria-label={label}

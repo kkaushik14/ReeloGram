@@ -341,7 +341,7 @@ export default function VideoFeed({
               }
             />
           </div>
-          <Link href="/upload" className="button primary">
+          <Link prefetch={false} href="/upload" className="button primary">
             <Plus size={20} /> Share a video
           </Link>
         </div>
@@ -549,7 +549,7 @@ export default function VideoFeed({
                     Clear filters
                   </button>
                 ) : (
-                  <Link href="/upload" className="button primary">
+                  <Link prefetch={false} href="/upload" className="button primary">
                     <Plus size={17} />
                     Share a video
                   </Link>
@@ -696,7 +696,7 @@ export default function VideoFeed({
             <h3>Some moments deserve more than a camera roll.</h3>
             <p>Give yours a place to be seen.</p>
           </div>
-          <Link href="/upload" className="text-button">
+          <Link prefetch={false} href="/upload" className="text-button">
             Share a video <ArrowUpRight size={17} />
           </Link>
         </section>
