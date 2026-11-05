@@ -103,6 +103,12 @@ try {
     await request("/register");
     await request("/login");
     await request("/api/imagekit-auth", { anonymous: true, expected: 401 });
+    await request("/api/videos", { anonymous: true, data: { title: "Unauthorized" }, expected: 401 });
+    await request("/api/videos?limit=0", { anonymous: true, expected: 400 });
+    await request("/api/videos?cursor=invalid", { anonymous: true, expected: 400 });
+    const initialFeed = await (await request("/api/videos", { anonymous: true })).json();
+    assert.ok(Array.isArray(initialFeed.videos));
+    if (!configuredDatabase) assert.deepEqual(initialFeed, { videos: [], nextCursor: null });
     registrationAttempted = true;
     const attempts = await Promise.all([email, email.toUpperCase()].map((address) =>
         fetch(base + "/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -129,9 +135,15 @@ try {
     assert.equal(session.user.email, email);
     assert.ok(session.user.id);
     console.log("Registration, duplicate email, hashing, wrong password and session checks passed.");
+    await request("/api/videos", { data: { title: "Missing upload" }, expected: 400 });
 
     if (liveUploads) {
-        for (const fixture of fixtures) {
+        const mediaLibrary = new ImageKit({ publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY,
+            privateKey: process.env.PRIVATE_KEY, urlEndpoint: process.env.NEXT_PUBLIC_URL_ENDPOINT });
+        let thumbnailFile;
+        const savedVideos = [];
+        const videoFixture = fixtures.find((fixture) => fixture.type.startsWith("video/"));
+        for (const fixture of [...fixtures, { ...videoFixture, name: "second-frame.avi" }]) {
             const authResponse = await request("/api/imagekit-auth");
             assert.match(authResponse.headers.get("cache-control"), /no-store/);
             const auth = await authResponse.json();
@@ -155,7 +167,42 @@ try {
             assert.equal((await download.arrayBuffer()).byteLength, fixture.bytes.length);
             checks += 3;
             console.log(`Live ImageKit ${fixture.type} upload and retrieval passed.`);
+            if (fixture.type === "image/png") thumbnailFile = result;
+            if (fixture.type.startsWith("video/")) {
+                const input = { title: `e2e-${runId}-${savedVideos.length}`, description: "Synthetic E2E video",
+                    fileId: result.fileId, thumbnailFileId: thumbnailFile.fileId, controls: false,
+                    uploadedBy: "forged-author", videoUrl: "https://example.invalid/forged.avi" };
+                const saved = await (await request("/api/videos", { data: input, expected: 201 })).json();
+                const verifiedVideo = await mediaLibrary.getFileDetails(result.fileId);
+                const verifiedThumbnail = await mediaLibrary.getFileDetails(thumbnailFile.fileId);
+                assert.equal(saved.videoUrl, verifiedVideo.url);
+                assert.equal(saved.thumbnailUrl, verifiedThumbnail.url);
+                assert.equal(saved.uploadedBy, session.user.id);
+                assert.equal(saved.controls, false);
+                savedVideos.push(saved);
+                await request("/api/videos", { data: input, expected: 409 });
+                const db = await mongoose.createConnection(databaseUri).asPromise();
+                try {
+                    const stored = await db.collection("videos").findOne({ fileId: result.fileId });
+                    assert.equal(stored._id.toString(), saved.id);
+                    assert.equal(stored.uploadedBy.toString(), session.user.id);
+                    assert.equal(stored.videoUrl, verifiedVideo.url);
+                } finally { await db.close(); }
+            }
         }
+        await request("/api/videos", { data: { title: "Not a video", description: "Invalid media",
+            fileId: thumbnailFile.fileId, thumbnailFileId: thumbnailFile.fileId }, expected: 400 });
+        await request("/api/videos", { data: { title: "Missing file", description: "Missing media",
+            fileId: "000000000000000000000000", thumbnailFileId: thumbnailFile.fileId }, expected: 404 });
+        const firstResponse = await request("/api/videos?limit=1", { anonymous: true });
+        assert.match(firstResponse.headers.get("cache-control"), /no-store/);
+        const first = await firstResponse.json();
+        assert.equal(first.videos[0].id, savedVideos[1].id);
+        assert.ok(first.nextCursor);
+        const second = await (await request(`/api/videos?limit=1&cursor=${first.nextCursor}`, { anonymous: true })).json();
+        assert.equal(second.videos[0].id, savedVideos[0].id);
+        if (!configuredDatabase) assert.equal(second.nextCursor, null);
+        console.log("Video persistence, author attribution, duplicate rejection, media validation and public feed pagination passed.");
     } else {
         console.log("Live ImageKit uploads skipped. Enable explicitly with: npm run test:e2e -- --imagekit");
     }
@@ -164,6 +211,7 @@ try {
     await request("/api/auth/signout", { form: { csrfToken, json: "true" } });
     assert.deepEqual(await (await request("/api/auth/session")).json(), {});
     await request("/api/imagekit-auth", { expected: 401 });
+    await request("/api/videos", { data: { title: "Logged out" }, expected: 401 });
     if (process.argv.includes("--hold")) {
         console.log(`Browser test server: ${base} (runner PID ${process.pid}). Send SIGINT to finish and clean up.`);
         await once(process, "SIGINT");
@@ -174,6 +222,7 @@ try {
         const { url } = await failure.json();
         assert.equal(new URL(url).searchParams.get("error"), "Sign-in is temporarily unavailable. Please try again later.");
         await request("/api/auth/register", { data: { email: `offline-${email}`, password }, expected: 503 });
+        await request("/api/videos", { anonymous: true, expected: 503 });
         console.log("Database outage returns controlled errors without exposing connection details.");
     }
     console.log(`PASS: ${checks} end-to-end checks, including logout and upload access control.`);
@@ -206,9 +255,11 @@ try {
         try {
             const mongoose = (await import("mongoose")).default;
             connection = await mongoose.createConnection(databaseUri, { serverSelectionTimeoutMS: 10000 }).asPromise();
+            await connection.collection("videos").deleteMany({ fileId: { $in: uploaded } });
+            assert.equal(await connection.collection("videos").countDocuments({ fileId: { $in: uploaded } }), 0);
             await connection.collection("users").deleteMany({ email });
             assert.equal(await connection.collection("users").countDocuments({ email }), 0);
-            console.log("Deleted this run's test account from the configured database.");
+            console.log("Deleted this run's test account and video records from the configured database.");
         } catch {
             console.error("Could not clean up test account:", email);
             process.exitCode = 1;

@@ -7,6 +7,9 @@ export const VIDEO_DIMENSION = {
 
 export interface InterFVideo {
     _id?: mongoose.Types.ObjectId;
+    fileId?: string;
+    thumbnailFileId?: string;
+    uploadedBy?: mongoose.Types.ObjectId;
     title: string;
     description: string;
     videoUrl: string;
@@ -22,10 +25,13 @@ export interface InterFVideo {
 }
 
 const videoSchema = new Schema<InterFVideo>({
-    title: {type: String, required: true},
+    fileId: {type: String, unique: true, sparse: true},
+    thumbnailFileId: {type: String},
+    uploadedBy: {type: Schema.Types.ObjectId, ref: "User"},
+    title: {type: String, required: true, trim: true, maxlength: 120},
     videoUrl: {type: String, required: true},
     thumbNailUrl: {type: String, required: true},
-    description: {type: String, required: true},
+    description: {type: String, required: true, trim: true, maxlength: 2000},
     controls: {type: Boolean, default: true},
     transformatioon: {
         height: {type: Number, default: VIDEO_DIMENSION.height},
@@ -35,6 +41,8 @@ const videoSchema = new Schema<InterFVideo>({
 }, {
     timestamps: true
 });
+
+videoSchema.index({ createdAt: -1, _id: -1 });
 
 const Video = models?.Video || model<InterFVideo>("Video", videoSchema)
 
