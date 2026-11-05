@@ -24,6 +24,7 @@ export async function middleware(req: NextRequest) {
       "/help",
     ].includes(pathname) ||
     pathname === "/api/auth" ||
+    pathname === "/api/cron/email-blocklist" ||
     pathname.startsWith("/api/auth/") ||
     (req.method === "GET" &&
       (pathname === "/api/showcase" ||

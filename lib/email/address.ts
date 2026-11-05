@@ -13,7 +13,10 @@ export async function validateEmailAddress(
   const email = parseEmail(value);
   if (!email) throw new AuthRequestError("Enter a valid email address.");
   const domain = email.split("@")[1];
-  if (!MailChecker.isValid(email) || isSupplementaryDisposableDomain(domain))
+  if (
+    !MailChecker.isValid(email) ||
+    (await isSupplementaryDisposableDomain(domain))
+  )
     throw new AuthRequestError(
       "Use a permanent email address. Temporary email services are not supported.",
     );

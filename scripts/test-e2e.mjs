@@ -294,6 +294,10 @@ try {
     "Rejected signup must not send any email",
   );
   registrationAttempted = true;
+  await request("/api/cron/email-blocklist", {
+    anonymous: true,
+    expected: 401,
+  });
   const attempts = await Promise.all(
     [email, email.toUpperCase()].map((address) =>
       fetch(base + "/api/auth/register", {

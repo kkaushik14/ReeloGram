@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/cron/email-blocklist", "schedule": "30 22 * * *" }]
+}

@@ -7,6 +7,7 @@
     "dev": "next dev --turbopack",
     "prebuild": "node scripts/update-email-blocklist.mjs --fallback",
     "email:update-blocklist": "node scripts/update-email-blocklist.mjs",
+    "test:daily-blocklist": "node --experimental-strip-types scripts/test-daily-blocklist.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
