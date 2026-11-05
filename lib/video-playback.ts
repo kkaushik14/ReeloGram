@@ -119,7 +119,7 @@ export function progressiveVideoUrl(
     height <= 360 ? 55 : height <= 720 ? 80 : 85;
   url.searchParams.set(
     "tr",
-    `w-${Math.round((height * 16) / 9)},h-${height},c-at_max,q-${quality},f-mp4,ov-redirect_false`,
+    `w-${Math.round((height * 16) / 9)},h-${height},c-at_max,q-${quality},f-mp4${url.pathname.endsWith("/ik-gif-video.mp4") ? "" : ",ov-redirect_false"}`,
   );
   return url.toString();
 }
@@ -133,6 +133,9 @@ export function streamingVideoUrl(
 ) {
   const url = imageKitVideoBase(src, endpoint);
   if (!url) return null;
+  // GIF conversions use optimized MP4 and return 202 until ready. They cannot
+  // use the ordinary video's redirect override or nested HLS URL.
+  if (url.pathname.endsWith("/ik-gif-video.mp4")) return null;
   let cap: number = Math.min(VIDEO_PLAYBACK.roleCaps[role], maximum ?? 2160);
   if (source?.height)
     cap = Math.min(

@@ -11,6 +11,10 @@ import { queueEmail, deliverQueuedEmails } from "@/lib/email/outbox";
 import { videoPostedEmail } from "@/lib/email/templates";
 import { appOrigin } from "@/lib/email/transport";
 import { prepareVideoPlayback } from "@/lib/video-preparation";
+import {
+  publishMediaError,
+  publishedVideoUrl,
+} from "@/lib/uploads/publish-media";
 import { presentVideos } from "@/lib/video-presenter";
 import {
   getMediaFile,
@@ -131,10 +135,13 @@ export async function POST(req: Request) {
     );
   let body: unknown;
   try {
-    await limitRequest("publish",session.user.id,req.headers);
+    await limitRequest("publish", session.user.id, req.headers);
     body = await readAuthJson(req);
   } catch (error) {
-    return authFailure(error,"Video saving is temporarily unavailable. Please try again later.");
+    return authFailure(
+      error,
+      "Video saving is temporarily unavailable. Please try again later.",
+    );
   }
   const input = parseVideoInput(body);
   if (!input)
@@ -158,6 +165,28 @@ export async function POST(req: Request) {
     return await withMediaLocks(
       [input.fileId, input.thumbnailFileId],
       async () => {
+        const existing = await Video.findOne({ fileId: input.fileId });
+        if (existing) {
+          // A lost response must not force another upload or duplicate a post.
+          if (
+            !existing.deletionPending &&
+            String(existing.uploadedBy) === session.user.id &&
+            existing.thumbnailFileId === input.thumbnailFileId &&
+            existing.title === input.title &&
+            existing.description === input.description &&
+            existing.controls === input.controls
+          )
+            return NextResponse.json((await presentVideos([existing]))[0], {
+              headers,
+            });
+          return NextResponse.json(
+            {
+              error:
+                "This video has already been saved. Check Your videos before trying again.",
+            },
+            { status: 409, headers },
+          );
+        }
         let videoFile, thumbnail;
         try {
           [videoFile, thumbnail] = await Promise.all([
@@ -175,33 +204,26 @@ export async function POST(req: Request) {
             { status: missing ? 404 : 503 },
           );
         }
-        if (
-          !videoFile.mime?.startsWith("video/") ||
-          videoFile.size <= 0 ||
-          videoFile.size > 100 * 1024 * 1024 ||
-          !["image/jpeg", "image/png", "image/webp"].includes(
-            thumbnail.mime ?? "",
-          ) ||
-          thumbnail.size <= 0 ||
-          thumbnail.size > 5 * 1024 * 1024 ||
-          videoFile.isPrivateFile ||
-          thumbnail.isPrivateFile
-        ) {
+        const mediaError = publishMediaError(videoFile, thumbnail);
+        if (mediaError) {
+          console.warn("Publish rejected", {
+            reason: "media_validation",
+            videoMime: videoFile.mime,
+            coverMime: thumbnail.mime,
+          });
           return NextResponse.json(
-            {
-              error:
-                "A public video up to 100 MB and a public JPEG, PNG or WebP thumbnail up to 5 MB are required",
-            },
-            { status: 400 },
+            { error: mediaError },
+            { status: 400, headers },
           );
         }
+        const videoUrl = publishedVideoUrl(videoFile, urlEndpoint);
         try {
           await connectToDatabase();
           await Video.init();
           const video = await Video.create({
             ...input,
             uploadedBy: session.user.id,
-            videoUrl: videoFile.url,
+            videoUrl,
             thumbNailUrl: thumbnail.url,
             transformatioon: {
               width: videoFile.width || VIDEO_DIMENSION.width,
@@ -210,7 +232,7 @@ export async function POST(req: Request) {
           });
           const presented = (await presentVideos([video]))[0];
           after(async () => {
-            await prepareVideoPlayback(videoFile.url, presented.transformation);
+            await prepareVideoPlayback(videoUrl, presented.transformation);
             try {
               const owner = await User.findById(session.user.id).select(
                 "email",

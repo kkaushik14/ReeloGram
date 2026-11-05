@@ -525,7 +525,8 @@ try {
           ).id,
           saved.id,
         );
-        await request("/api/videos", { data: input, expected: 409 });
+        const replay = await (await request("/api/videos", { data: input })).json();
+        assert.equal(replay.id,saved.id,"A retry after a lost response must return the same post");
         const db = await mongoose.createConnection(databaseUri).asPromise();
         try {
           const stored = await db
@@ -894,6 +895,30 @@ try {
     console.log(
       "Owner-only edits/deletes, shared-thumbnail retention, ImageKit removal, lock contention and partial-delete retry passed.",
     );
+    const frames=Buffer.concat([Buffer.alloc(64*64*3,80),Buffer.alloc(64*64*3,190)]);
+    const gif=await sharp(frames,{raw:{width:64,height:128,channels:3,pageHeight:64}}).gif({delay:[400,400],loop:0}).toBuffer();
+    assert.equal((await sharp(gif,{animated:true}).metadata()).pages,2);
+    const gifFiles=[];
+    for(const fixture of [{bytes:gif,type:"video/mp4",name:"mislabeled.gif.mp4",folder:"/videos"},fixtures[0]]){
+      const auth=await(await request("/api/imagekit-auth")).json();
+      const form=new FormData();form.set("file",new Blob([fixture.bytes],{type:fixture.type}),fixture.name);form.set("fileName",`e2e-${runId}-${fixture.name}`);form.set("folder",fixture.folder);form.set("publicKey",process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
+      for(const key of ["signature","token","expire"])form.set(key,String(auth[key]));
+      const response=await fetch("https://upload.imagekit.io/api/v1/files/upload",{method:"POST",body:form,signal:AbortSignal.timeout(60000)});
+      const file=await response.json();if(file.fileId)uploaded.push(file.fileId);assert.equal(response.status,200);gifFiles.push(file);
+    }
+    assert.equal((await mediaLibrary.getFileDetails(gifFiles[0].fileId)).mime,"image/gif");
+    const gifInput={title:`e2e-${runId}-gif`,description:"Synthetic GIF conversion check",fileId:gifFiles[0].fileId,thumbnailFileId:gifFiles[1].fileId};
+    const gifPost=await(await request("/api/videos",{data:gifInput,expected:201})).json();
+    assert.ok(new URL(gifPost.videoUrl).pathname.endsWith("/ik-gif-video.mp4"));
+    const {progressiveVideoUrl}=await import("../lib/video-playback.ts");
+    const delivery=progressiveVideoUrl(gifPost.videoUrl,process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,240);
+    let ready=false;const gifDeadline=Date.now()+90000;
+    while(Date.now()<gifDeadline){const response=await fetch(delivery,{headers:{Range:"bytes=0-0"},redirect:"manual",signal:AbortSignal.timeout(10000)});const mime=response.headers.get("content-type")||"";await response.body?.cancel();if([200,206].includes(response.status)&&mime.startsWith("video/")){ready=true;break;}assert.equal(response.status,202,"GIF conversion must be pending or a playable video");await new Promise(resolve=>setTimeout(resolve,1000));}
+    assert.ok(ready,"ImageKit must serve converted GIF as playable video");checks++;
+    assert.equal((await(await request("/api/videos",{data:gifInput})).json()).id,gifPost.id);
+    await request("/api/videos",{data:{...gifInput,title:"Changed retry"},expected:409});
+    await request(`/api/videos/${gifPost.id}`,{method:"DELETE",expected:204});
+    console.log("Mislabeled animated GIF uploads publish as ImageKit MP4, become playable, retry without duplication and delete cleanly.");
   } else {
     console.log(
       "Live ImageKit uploads skipped. Enable explicitly with: npm run test:e2e -- --imagekit",

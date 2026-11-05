@@ -163,6 +163,8 @@ Add the new names to the intended Vercel project/environment and redeploy. If a 
 
 Hero and login/signup clips use a stable optimized MP4 rendition selected for the device, connection, source and displayed crop. They retain that sharpness across loops rather than switching HLS levels repeatedly. A sustained eight-second stall or explicit data-saving/slow-network setting can reduce quality. Reels and the main viewer continue to use adaptive HLS. Run `npm run videos:prepare -- --apply` to prepare the sharper showcase renditions before release.
 
+The publishing form checks MP4, WebM and GIF file signatures before uploading, including GIFs mislabeled by a browser as MP4. The server verifies ImageKit's actual MIME metadata and size limits. GIFs retain their original file ID for ownership and deletion, and play through ImageKit's `/ik-gif-video.mp4` conversion endpoint. Their optimized MP4 delivery waits through processing responses without using unsupported HLS or redirect-override options. The page displays the API's specific validation error and keeps uploaded IDs for manual retry. An exact retry for the same owner and files returns the existing post without publishing or emailing twice.
+
 ## Analytics and cookie preferences
 
 Google Analytics uses measurement ID `G-B6PDWD34WF` only in Vercel's Production environment and only after the visitor chooses **Allow analytics**. No Google tag is loaded before that choice. **Essential only** preserves sign-in and media functionality without analytics. The consent choice expires after 180 days and can be changed through Cookie settings in the footer or Privacy policy. Changes synchronize between open tabs; withdrawal disables future measurement and removes this site's `_ga` cookies.

@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { validateUpload } from "@/lib/upload-validation";
 import { uploadToImageKit } from "@/lib/uploads/imagekit-upload";
+import { validateClip } from "@/lib/uploads/clip";
+import { publishVideo } from "@/lib/uploads/publish";
 import { FormSkeleton } from "./LoadingState";
 import Headline from "./motion/Headline";
 export default function UploadForm() {
@@ -23,6 +25,8 @@ export default function UploadForm() {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const selection = useRef(0);
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState("");
   const uploaded = useRef<{ video?: string; image?: string }>({});
@@ -44,13 +48,22 @@ export default function UploadForm() {
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
   }, [busy]);
-  function select(file: File | undefined, type: "video" | "image") {
+  async function select(file: File | undefined, type: "video" | "image") {
     if (!file) return;
-    if (type === "video" && !["video/mp4", "video/webm"].includes(file.type)) {
-      setError("Choose an MP4 or WebM video so it can play in a browser.");
-      return;
+    const attempt = type === "video" ? ++selection.current : 0;
+    if (type === "video") setChecking(true);
+    let message: string | null;
+    try {
+      message =
+        type === "video"
+          ? await validateClip(file)
+          : validateUpload(file, type);
+    } catch {
+      message = "We couldn’t read that file. Please choose it again.";
+    } finally {
+      if (type === "video" && attempt === selection.current) setChecking(false);
     }
-    const message = validateUpload(file, type);
+    if (type === "video" && attempt !== selection.current) return;
     if (message) {
       setError(message);
       return;
@@ -63,19 +76,35 @@ export default function UploadForm() {
   async function upload(file: File, type: "video" | "image") {
     if (uploaded.current[type]) return uploaded.current[type]!;
     const id = await uploadToImageKit(
-      file, type, process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY || "", setProgress,
+      file,
+      type,
+      process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY || "",
+      setProgress,
     );
     uploaded.current[type] = id;
     return id;
   }
   async function publish(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || checking) return;
     if (!video || !image) {
       setError("Choose a video and cover image first.");
       return;
     }
     const form = new FormData(e.currentTarget);
+    const title = String(form.get("title") || "").trim();
+    const description = String(form.get("description") || "").trim();
+    if (
+      !title ||
+      title.length > 120 ||
+      !description ||
+      description.length > 2000
+    ) {
+      setError(
+        "Add a title of 1–120 characters and a description of 1–2000 characters before uploading.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -87,24 +116,7 @@ export default function UploadForm() {
       const thumbnailFileId = await upload(image, "image");
       setStep("Publishing your video");
       setProgress(100);
-      const response = await fetch("/api/videos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: form.get("title"),
-          description: form.get("description"),
-          fileId,
-          thumbnailFileId,
-        }),
-      });
-      if (!response.ok)
-        throw Error(
-          response.status === 429
-            ? "You’ve reached the posting limit. Please wait before trying again. Your uploaded files are kept for retry."
-            : response.status === 409
-            ? "This video is already shared or is busy. Check your videos before trying again."
-            : "Your files are uploaded, but we couldn’t publish the video. Please try again.",
-        );
+      await publishVideo({ title, description, fileId, thumbnailFileId });
       router.push("/my-videos");
       router.refresh();
     } catch (e) {
@@ -157,7 +169,7 @@ export default function UploadForm() {
               <label className={`file-drop ${video ? "selected" : ""}`}>
                 <input
                   type="file"
-                  accept="video/mp4,video/webm"
+                  accept="video/mp4,video/webm,image/gif"
                   disabled={busy}
                   aria-label="Choose video"
                   onChange={(e) => select(e.target.files?.[0], "video")}
@@ -165,13 +177,19 @@ export default function UploadForm() {
                 <span className="empty-icon">
                   {video ? <Check /> : <Upload />}
                 </span>
-                <strong>{video ? video.name : "Choose your video"}</strong>
+                <strong>
+                  {checking
+                    ? "Checking your file…"
+                    : video
+                      ? video.name
+                      : "Choose your video"}
+                </strong>
                 <span>
                   {video
                     ? `${(video.size / 1024 / 1024).toFixed(1)} MB · Click to change`
                     : "Select a video from your device"}
                 </span>
-                <small>MP4 or WebM · Up to 100 MB</small>
+                <small>MP4, WebM or GIF · Up to 100 MB</small>
               </label>
             </section>
             <section className="form-panel">
@@ -261,7 +279,7 @@ export default function UploadForm() {
               >
                 Cancel
               </Link>
-              <button className="button primary" disabled={busy}>
+              <button className="button primary" disabled={busy || checking}>
                 {busy ? "Publishing…" : "Publish video"}
                 {busy ? (
                   <span className="motion-spinner" aria-hidden="true" />
