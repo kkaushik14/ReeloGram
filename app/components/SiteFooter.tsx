@@ -1,0 +1,61 @@
+import Link from "next/link";
+import { Aperture, ArrowUpRight } from "lucide-react";
+export default function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <div className="footer-top">
+        <div className="footer-intro">
+          <Link className="footer-brand" href="/" aria-label="ReeloGram home">
+            <Aperture size={28} />
+            <strong>ReeloGram.</strong>
+          </Link>
+          <p>
+            Good moments deserve
+            <br />a place to be seen.
+          </p>
+          <Link className="footer-cta" href="/upload">
+            Share your perspective <ArrowUpRight size={19} />
+          </Link>
+        </div>
+        <nav aria-label="Footer explore">
+          <h2>Explore</h2>
+          <Link href="/">Browse videos</Link>
+          <Link href="/reels">Watch Reels</Link>
+          <Link href="/my-videos">Your videos</Link>
+          <Link href="/upload">Upload a video</Link>
+        </nav>
+        <nav aria-label="Footer support">
+          <h2>Make yourself at home</h2>
+          <Link href="/help">Help & answers</Link>
+          <Link href="/login">Your account</Link>
+          <a
+            href="https://github.com/kkaushik14/ReeloGram/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Report an issue <ArrowUpRight size={14} />
+          </a>
+        </nav>
+        <nav aria-label="Footer policies">
+          <h2>The details</h2>
+          <Link href="/terms">Terms of use</Link>
+          <Link href="/privacy">Privacy policy</Link>
+          <a
+            href="https://github.com/kkaushik14/ReeloGram"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Find us on GitHub <ArrowUpRight size={14} />
+          </a>
+        </nav>
+      </div>
+      <div className="footer-bottom">
+        <span>
+          © {new Date().getFullYear()} <strong>ReeloGram</strong>
+        </span>
+        <span>Made for a fresh perspective.</span>
+        <a href="#main">Back to top ↑</a>
+      </div>
+    </footer>
+  );
+}

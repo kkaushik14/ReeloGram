@@ -50,7 +50,7 @@ For manual form checks, add `--hold` to keep the temporary app running. The runn
 ## API routes
 
 - `GET/POST /api/auth/[...nextauth]`: NextAuth session and credential endpoints.
-- `POST /api/auth/register`: accepts JSON containing `email` and `password`; passwords are hashed before storage. Requires at least 8 characters and no more than 72 UTF-8 bytes.
+- `POST /api/auth/register`: accepts JSON containing `email`, `name`, `dateOfBirth` (YYYY-MM-DD) and `password`; passwords are hashed before storage. Requires at least 8 characters and no more than 72 UTF-8 bytes.
 - `GET /api/imagekit-auth`: returns short-lived upload authentication parameters for signed-in users. Responses are not cached.
 - `POST /api/videos`: saves metadata for an uploaded video; requires a signed-in session.
 - `GET /api/videos?limit=5&cursor=...`: public video feed, newest first, with a default and maximum initial page size of five, then one video per cursor request. Returns `{ videos, nextCursor, total }`; pass `nextCursor` back unchanged for the next page. An empty/end page has `nextCursor: null`. Responses are not cached.
@@ -124,9 +124,25 @@ Login and registration place a looping, muted preview of a real ImageKit video o
 
 The source manifest is `scripts/featured-clips.mjs`. Newly added providers use namespaced source IDs to avoid collisions with one another. Source filters, logos and credit text support Pexels, Pixabay, Coverr and Mixkit. Community filtering excludes editorial imports. These are credited viewing examples inside ReeloGram, with no stock-download marketplace or invented uploader identities. Original license links remain attached to every imported record.
 
-`app/refinements.css` adds a slate dark palette inspired by the layered surfaces in [Radix Colors](https://www.radix-ui.com/colors) while preserving the supplied design-token file and the compact Reels layout. The resource banner plays four dedicated, credited ImageKit clips. These records have `placement: hero` and are excluded from Browse/Reels. Only the current banner video is mounted, with width/quality optimization applied by ImageKit. Rotation and playback can be paused; reduced-motion preferences require manual playback.
+`app/refinements.css` adds a slate dark palette inspired by the layered surfaces in [Radix Colors](https://www.radix-ui.com/colors) while preserving the supplied design-token file and the compact Reels layout. The resource banner plays four dedicated, credited ImageKit clips. These records have `placement: hero` and are excluded from Browse/Reels. Only the current banner video is mounted, with quality chosen by the shared ImageKit playback policy. Rotation and playback can be paused; reduced-motion preferences require manual playback.
 
 
 `GET /api/showcase` provides the banner-only clips. Authentication previews use one of these clips instead of reusing the public feed. The complete Reels viewer expands into a native modal dialog, bounded inside the viewport, retaining its scrolling feed, left controls, right details and incremental loading. Its X button is the only dismiss control: Escape and backdrop clicks do not dismiss it. The same video elements remain mounted when expanding/collapsing, preserving the selected Reel, playback time, mute and pause settings. A 32×18 canvas samples the active video at most five times per second to create the blurred ambient light, without decoding a second background video. Only the active Reel plays in either presentation.
 
 Light mode uses shared `--color-support` tokens for restrained teal accents on counts, selected views and decorative background details. Purple remains the primary action colour; the expanded viewer supplies its own dark local token values for readable controls and text.
+
+## Adaptive video delivery and feed cleanup
+
+Use `AdaptiveVideo` from `app/components/AdaptiveVideo.tsx` for every video context. `lib/video-playback.ts` is the reusable policy: it selects a quality cap from connection/data-saving settings, hardware hints, display size, crop and source dimensions. Watch/Reels and wide banners can reach 2160p when useful; weak devices and slow networks receive lower caps. HLS adapts within the cap. Browsers without suitable HLS support use bounded, optimized ImageKit MP4 renditions. Processing responses are polled; the player never redirects a slow device to a large unoptimized original. Only the active, visible video is decoded, and hidden/offscreen players release their buffers. One upcoming Reel may request a manifest and one-byte preparation probe; data-saving and slow connections skip that work.
+
+`npm run videos:prepare` previews preparation for banner clips. Add `--apply` to warm the shared delivery profiles in ImageKit; `--feed` selects feed records instead. Upload saves also start preparation after the response. These operations do not serve files from disk.
+
+`npm run videos:archive-imports` previews removal of the exact reviewed editorial feed IDs. `--apply` archives those records. `--all-current --apply` archives the current feed snapshot, including community posts, while retaining all original files, ownership and credits. Banner-only records are excluded. Browse, Reels and share links hide archived records; future uploads default to the feed and appear in both existing layouts. The operation can be reversed by a trusted database operator setting selected records' placement back to `feed`. Seed commands do not republish an already-imported archived record.
+
+## Email-first accounts, recovery and email
+
+Start with an email on `/login` or `/register`. Existing users enter a password; new users add a private date of birth and public name, then create a password. `/forgot-password` and `/reset-password` provide single-use, expiring email recovery. SMTP/Resend adapters, templates and delivery queues are separate from routes and video code. See [the authentication guide](docs/authentication.md) for environment settings, API behavior, retry handling, rate limits, session revocation, handled edge cases and test coverage. Use Node 24 LTS for development and the maintenance scripts.
+
+The shared footer links to Help, Terms of use and Privacy policy and is absent on authentication pages. The sidebar stays fixed without its own scrollbar. Route, feed, Reel, account and upload skeletons reserve the expected space while content is loading. The HLS implementation is loaded only when a browser needs it; account and video notifications run after successful responses.
+
+`npm run test:email` separately tests SMTP rejection/retry, concurrent worker leases, event deduplication and payload expiry against a local TLS inbox and disposable MongoDB. It does not send internet mail.

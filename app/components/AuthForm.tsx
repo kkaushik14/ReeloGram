@@ -1,52 +1,328 @@
 "use client";
-
-import { useState, useEffect, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { Aperture, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Aperture, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-
+import { parseProfile, passwordError } from "@/lib/auth/validation";
+import { completeSignIn } from "@/lib/auth/client";
+import { safeAuthDestination } from "@/lib/auth/navigation";
 import AuthShowcase from "./AuthShowcase";
+
+type Step = "email" | "login" | "profile" | "password";
 export default function AuthForm({ register = false }: { register?: boolean }) {
-    const router = useRouter();
-    const [visible, setVisible] = useState(false);
-    const [registered, setRegistered] = useState(false);
-    useEffect(() => { setRegistered(new URLSearchParams(window.location.search).has("registered")); }, []);
-    const [pending, setPending] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    async function submit(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-        if (pending) return;
-        const form = new FormData(event.currentTarget);
-        const email = String(form.get("email") ?? "").trim().toLowerCase();
-        const password = String(form.get("password") ?? "");
-        if (register && new TextEncoder().encode(password).length > 72) { setError("That password is too long. Please choose a shorter one."); return; }
-        setPending(true);
-        setError(null);
-        try {
-            if (register) {
-                const response = await fetch("/api/auth/register", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email, password }),
-                });
-                if (!response.ok) throw new Error(response.status === 409 ? "An account with this email already exists. Please sign in." : response.status === 400 ? "Check your email and choose a password with at least 8 characters." : "We couldn’t create your account. Please try again.");
-                router.push("/login?registered=1");
-            } else {
-                const result = await signIn("credentials", { email, password, redirect: false });
-                if (!result || result.error) throw new Error("Unable to sign in. Check your credentials and try again.");
-                const callback = new URLSearchParams(window.location.search).get("callbackUrl");
-                const destination = new URL(callback || "/", window.location.origin);
-                router.push(destination.origin === window.location.origin ? destination.pathname + destination.search : "/");
-                router.refresh();
-            }
-        } catch (error) {
-            setError(error instanceof Error ? error.message : "Please try again.");
-        } finally {
-            setPending(false);
-        }
+  const router = useRouter();
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [dob, setDob] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  const first = useRef(true);
+  const [today, setToday] = useState("");
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    if (query.has("registered"))
+      setNotice("Your account is ready. Sign in to get started.");
+    if (query.has("reset"))
+      setNotice("Your password is updated. Sign in with your new password.");
+    setToday(new Date().toISOString().slice(0, 10));
+  }, []);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
     }
-
-    return <div className="auth-scene"><section className="auth-card" aria-labelledby="auth-title"><Link href="/" className="auth-brand" aria-label="ReeloGram home"><Aperture size={27}/><span>ReeloGram<span className="brand-dot">.</span></span></Link><h1 id="auth-title">{register ? "Create an account" : "Welcome back"}</h1>{registered && <p className="notice" role="status">Your account is ready. Sign in to get started.</p>}<form onSubmit={submit} className="form-stack"><label>Email<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required maxLength={254} disabled={pending}/></label><label>Password<span className="password-wrap"><input aria-label="Password" name="password" type={visible ? "text" : "password"} autoComplete={register ? "new-password" : "current-password"} placeholder={register?"At least 8 characters":"Enter your password"} required minLength={register ? 8 : undefined} disabled={pending}/><button type="button" disabled={pending} className="icon-button" aria-label={visible ? "Hide password" : "Show password"} onClick={()=>setVisible(!visible)}>{visible?<EyeOff size={19}/>:<Eye size={19}/>}</button></span></label>{error && <p role="alert" className="error-text">{error}</p>}<button type="submit" disabled={pending} className="button primary">{pending ? "Please wait…" : register ? "Create account" : "Sign in"}{pending?<span className="motion-spinner" aria-hidden="true"/>:<ArrowRight size={18}/>}</button></form><p className="auth-switch">{register ? "Already have an account? " : "New to ReeloGram? "}<Link href={register ? "/login" : "/register"}>{register ? "Sign in" : "Create an account"}</Link></p></section><AuthShowcase/></div>;
+    heading.current?.focus({ preventScroll: true });
+  }, [step]);
+  const title =
+    step === "profile"
+      ? "A little about you"
+      : step === "password"
+        ? "Make it yours"
+        : step === "login"
+          ? "Welcome back"
+          : register
+            ? "Find your place here"
+            : "Welcome to ReeloGram";
+  function finishSignIn() {
+    router.push(
+      safeAuthDestination(
+        new URLSearchParams(location.search).get("callbackUrl"),
+        location.origin,
+      ),
+    );
+    router.refresh();
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const fields = new FormData(event.currentTarget);
+    setError("");
+    setPending(true);
+    try {
+      if (step === "email") {
+        const response = await fetch("/api/auth/identify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw Error(data.error || "Please try again.");
+        setEmail((value) => value.trim().toLowerCase());
+        setStep(data.next === "login" ? "login" : "profile");
+        setPassword("");
+        setConfirmation("");
+      } else if (step === "profile") {
+        const profile = parseProfile({
+          name: fields.get("name"),
+          dateOfBirth: fields.get("dateOfBirth"),
+        });
+        if (!profile) throw Error("Enter your name and a valid date of birth.");
+        setName(profile.name);
+        setDob(profile.dateOfBirth.toISOString().slice(0, 10));
+        setStep("password");
+      } else if (step === "password") {
+        const problem = passwordError(password);
+        if (problem) throw Error(problem);
+        if (password !== confirmation)
+          throw Error("Your passwords don’t match.");
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, name, dateOfBirth: dob, password }),
+        });
+        const data = await response.json();
+        if (response.status === 409) {
+          setStep("login");
+          setPassword("");
+          setConfirmation("");
+          throw Error("An account now uses this email. Sign in to continue.");
+        }
+        if (!response.ok)
+          throw Error(
+            data.error || "We couldn’t create your account. Please try again.",
+          );
+        const completed = await completeSignIn(data);
+        setPassword("");
+        setConfirmation("");
+        if (!completed) {
+          setStep("login");
+          setNotice("Your account is ready. Please sign in to continue.");
+          return;
+        }
+        finishSignIn();
+      } else {
+        const result = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+        if (!result || result.error)
+          throw Error(
+            result?.error?.includes("Too many")
+              ? result.error
+              : result?.error?.includes("temporarily unavailable")
+                ? "Sign-in is temporarily unavailable. Please try again later."
+                : "Email or password is incorrect. Try again or reset your password.",
+          );
+        finishSignIn();
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+  function back() {
+    setError("");
+    setNotice("");
+    setPassword("");
+    setConfirmation("");
+    setVisible(false);
+    setStep(step === "password" ? "profile" : "email");
+  }
+  return (
+    <div className="auth-scene">
+      <section className="auth-card" aria-labelledby="auth-title">
+        <Link href="/" className="auth-brand" aria-label="ReeloGram home">
+          <Aperture size={27} />
+          <span>
+            ReeloGram<span className="brand-dot">.</span>
+          </span>
+        </Link>
+        {step !== "email" && (
+          <button
+            className="auth-back"
+            type="button"
+            disabled={pending}
+            onClick={back}
+          >
+            <ArrowLeft size={15} />
+            {step === "password" ? "Back" : "Change email"}
+          </button>
+        )}
+        <h1 ref={heading} tabIndex={-1} id="auth-title">
+          {title}
+        </h1>
+        {step !== "email" && <p className="auth-email">{email}</p>}
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        )}
+        <form onSubmit={submit} className="form-stack" aria-busy={pending}>
+          {step === "email" && (
+            <label>
+              Email
+              <input
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                required
+                maxLength={254}
+                disabled={pending}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+          )}
+          {step === "profile" && (
+            <>
+              <label>
+                Name
+                <input
+                  name="name"
+                  autoComplete="name"
+                  placeholder="Your name"
+                  required
+                  maxLength={80}
+                  disabled={pending}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+              <label>
+                Date of birth
+                <input
+                  name="dateOfBirth"
+                  aria-label="Date of birth"
+                  aria-describedby="birthday-help"
+                  type="date"
+                  autoComplete="bday"
+                  required
+                  max={today || undefined}
+                  disabled={pending}
+                  value={dob}
+                  onChange={(event) => setDob(event.target.value)}
+                />
+                <small id="birthday-help">
+                  Your date of birth stays private.
+                </small>
+              </label>
+            </>
+          )}
+          {(step === "login" || step === "password") && (
+            <>
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={email}
+                readOnly
+                hidden
+              />
+              <label>
+                {step === "password" ? "Create password" : "Password"}
+                <span className="password-wrap">
+                  <input
+                    aria-label={
+                      step === "password" ? "Create password" : "Password"
+                    }
+                    name="password"
+                    type={visible ? "text" : "password"}
+                    autoComplete={
+                      step === "password" ? "new-password" : "current-password"
+                    }
+                    placeholder={
+                      step === "password"
+                        ? "At least 8 characters"
+                        : "Enter your password"
+                    }
+                    required
+                    minLength={step === "password" ? 8 : undefined}
+                    disabled={pending}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    disabled={pending}
+                    className="icon-button"
+                    aria-label={visible ? "Hide password" : "Show password"}
+                    onClick={() => setVisible((value) => !value)}
+                  >
+                    {visible ? <EyeOff size={19} /> : <Eye size={19} />}
+                  </button>
+                </span>
+              </label>
+              {step === "password" && (
+                <label>
+                  Confirm password
+                  <input
+                    name="confirmation"
+                    type={visible ? "text" : "password"}
+                    autoComplete="new-password"
+                    required
+                    disabled={pending}
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                  />
+                </label>
+              )}
+            </>
+          )}
+          {error && (
+            <p role="alert" className="error-text">
+              {error}
+            </p>
+          )}
+          {step === "login" && (
+            <Link className="forgot-link" href="/forgot-password">
+              Forgot password?
+            </Link>
+          )}
+          <button type="submit" disabled={pending} className="button primary">
+            {pending
+              ? "Please wait…"
+              : step === "login"
+                ? "Sign in"
+                : step === "password"
+                  ? "Create account"
+                  : "Continue"}
+            {pending ? (
+              <span className="motion-spinner" aria-hidden="true" />
+            ) : (
+              <ArrowRight size={18} />
+            )}
+          </button>
+        </form>
+        {step === "email" && (
+          <p className="auth-switch">
+            {register ? "Already have an account? " : "New here? "}
+            <Link href={register ? "/login" : "/register"}>
+              {register ? "Sign in" : "Create an account"}
+            </Link>
+          </p>
+        )}
+      </section>
+      <AuthShowcase />
+    </div>
+  );
 }

@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 export class MediaBusyError extends Error {}
 export class MediaNotFoundError extends Error {}
 
-type MediaFile = { url: string; mime?: string; size: number; isPrivateFile: boolean };
+type MediaFile = { url: string; mime?: string; size: number; width?: number; height?: number; isPrivateFile: boolean };
 
 async function mediaRequest(fileId: string, method: "GET" | "DELETE") {
     const key = process.env.PRIVATE_KEY;

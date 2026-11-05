@@ -2,7 +2,6 @@ import { Connection } from "mongoose";
 
 declare global {
     // A var declaration is required to augment globalThis across hot reloads.
-    // eslint-disable-next-line no-var
     var mongoose: {
         conn: Connection | null
         //               dataTypes
