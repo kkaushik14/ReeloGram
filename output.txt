@@ -1,0 +1,3 @@
+ImageKit upload authentication is served by GET /api/imagekit-auth, not the registration endpoint.
+A signed-in session is required. The JSON response contains token, expire, and signature.
+Registration uses POST /api/auth/register with an email and password JSON body.
