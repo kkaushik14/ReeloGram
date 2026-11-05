@@ -1,0 +1,43 @@
+/* Prevent accidental selection of controls, not normal reading content. */
+:where(button, [role="button"], .button, .nav-item, .brand, .nav-label,
+ .animated-headline, .feature-banner, .motion-art, .file-drop, .cover-drop) {
+ -webkit-user-select:none;
+ user-select:none;
+}
+:where(img,svg,canvas){-webkit-user-drag:none}
+:where(input,textarea,[contenteditable="true"]){-webkit-user-select:text;user-select:text}
+::selection{background:var(--color-accent-subtle);color:var(--color-accent-subtle-text)}
+/* Pointer clicks stay quiet; keyboard navigation keeps its visible focus ring. */
+:where(button,a,select):focus:not(:focus-visible){outline:none}
+:where(button,a,input,textarea,select):focus-visible{outline:2px solid var(--color-focus);outline-offset:3px}
+:where(input,textarea):disabled{cursor:not-allowed;background:var(--color-surface-muted)}
+:where(.button,.icon-button,.nav-item):not(:disabled):not([aria-disabled="true"]):active {
+ transform:none;
+ background-color:var(--color-surface-pressed);
+}
+.button.primary:not(:disabled):active{background:var(--color-accent-pressed)}
+.button.danger:not(:disabled):active{background:var(--color-danger)}
+/* Hover colour must not linger on touch devices after a tap. */
+@media(hover:none){
+ .icon-button:hover,.nav-item:hover{background:transparent}
+ .nav-item.active:hover{background:var(--color-accent-subtle)}
+ .button.primary:hover{background:var(--color-accent)}
+ .button.secondary:hover{background:var(--color-surface)}
+ .thumbnail:hover img{transform:none}
+}
+.nav-backdrop{display:none}
+@media(max-width:700px){
+ .nav-backdrop{display:block;position:fixed;inset:70px 0 0;border:0;padding:0;background:color-mix(in srgb,var(--color-text) 16%,transparent);z-index:9;cursor:default}
+ .sidebar.open{max-width:calc(100vw - 64px);overflow-y:auto;overscroll-behavior:contain}
+}
+.search,.search input{min-width:0}
+.cover-file-name{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+.player:focus:not(:focus-visible){outline:none}
+.player:focus-visible{outline:2px solid var(--color-focus);outline-offset:3px}
+input:-webkit-autofill{-webkit-text-fill-color:var(--color-text);box-shadow:0 0 0 1000px var(--color-surface) inset;caret-color:var(--color-text)}
+@media(max-width:480px){
+ .form-actions{flex-wrap:wrap}
+ .form-actions .button.primary,.form-actions .button.danger,.form-actions .button.secondary{min-width:0;flex:1 1 130px;max-width:100%}
+}
+@media(max-width:700px){.account-actions{min-width:0}.account-name{max-width:clamp(64px,20vw,110px)}}
+@media(max-width:360px){.topbar .button.small{padding-inline:8px;gap:4px}}

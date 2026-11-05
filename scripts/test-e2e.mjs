@@ -107,6 +107,7 @@ try {
     await request("/api/videos", { anonymous: true, data: { title: "Unauthorized" }, expected: 401 });
     await request("/api/videos?limit=0", { anonymous: true, expected: 400 });
     await request("/api/videos?cursor=invalid", { anonymous: true, expected: 400 });
+    await request("/api/videos?mine=true", { anonymous: true, expected: 401 });
     const initialFeed = await (await request("/api/videos", { anonymous: true })).json();
     assert.ok(Array.isArray(initialFeed.videos));
     if (!configuredDatabase) assert.deepEqual(initialFeed, { videos: [], nextCursor: null });
@@ -181,6 +182,7 @@ try {
                 assert.equal(saved.uploadedBy, session.user.id);
                 assert.equal(saved.controls, false);
                 savedVideos.push(saved);
+                assert.equal((await (await request(`/api/videos/${saved.id}`, { anonymous: true })).json()).id, saved.id);
                 await request("/api/videos", { data: input, expected: 409 });
                 const db = await mongoose.createConnection(databaseUri).asPromise();
                 try {
@@ -205,12 +207,15 @@ try {
         if (!configuredDatabase) assert.equal(second.nextCursor, null);
         console.log("Video persistence, author attribution, duplicate rejection, media validation and public feed pagination passed.");
 
+        const personal = await (await request("/api/videos?mine=true")).json();
+        assert.ok(personal.videos.every((video) => video.uploadedBy === session.user.id));
         const target = `/api/videos/${savedVideos[0].id}`;
         await request(target, { anonymous: true, method: "PATCH", data: { title: "Forbidden" }, expected: 401 });
         await request(target, { anonymous: true, method: "DELETE", expected: 401 });
         const ownerCookies = [...cookies];
         await request("/api/auth/register", { data: { email: otherEmail, password }, expected: 201 });
         await signIn({ email: otherEmail, password });
+        assert.deepEqual((await (await request("/api/videos?mine=true")).json()).videos, []);
         await request(target, { method: "PATCH", data: { title: "Forbidden" }, expected: 403 });
         await request(target, { method: "DELETE", expected: 403 });
         cookies.clear();

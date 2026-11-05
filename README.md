@@ -3,7 +3,7 @@
 Author: Kumar Kaushik
 Project date: 23 Jan 2026
 
-An existing Next.js App Router project with credential authentication, MongoDB models, ImageKit uploads, and video saving/feed APIs. The home page remains the original starter page; login and registration use basic forms. Video saving and feed display are not connected to the frontend yet.
+An existing Next.js App Router project with credential authentication, MongoDB models, ImageKit uploads, and video saving/feed APIs. The frontend follows the supplied soft monochrome design tokens, with light and dark appearance, video discovery, personal collections, upload progress, playback, sharing, and uploader-only editing and deletion.
 
 ## Local setup
 
@@ -73,7 +73,7 @@ Upload a video and a JPEG, PNG or WebP thumbnail through ImageKit using the auth
 
 The server verifies both file IDs in the configured ImageKit library, requires public files, checks media types and sizes (100 MB video, 5 MB thumbnail), derives their delivery URLs, and assigns the session user as author. Client-supplied URLs and author IDs are ignored. Titles must contain 1–120 characters and descriptions 1–2000 characters. `controls` is optional and defaults to true. Each uploaded video can be saved once; duplicate saves return 409. Missing files return 404; invalid inputs/media return 400; unauthenticated saves return 401; service failures return 503.
 
-The created record is returned with HTTP 201 and includes `id`, `fileId`, `thumbnailFileId`, `title`, `description`, `videoUrl`, `thumbnailUrl`, `controls`, `transformation`, `uploadedBy`, and timestamps. The existing model's legacy `thumbNailUrl` and `transformatioon` storage fields remain compatible; the API exposes the canonical names above. The frontend remains unchanged.
+The created record is returned with HTTP 201 and includes `id`, `fileId`, `thumbnailFileId`, `title`, `description`, `videoUrl`, `thumbnailUrl`, `controls`, `transformation`, `uploadedBy`, and timestamps. The existing model's legacy `thumbNailUrl` and `transformatioon` storage fields remain compatible; the API exposes the canonical names above. The frontend uses these APIs directly.
 
 ### Editing and deleting videos
 
@@ -81,6 +81,24 @@ Send a signed-in session cookie to `PATCH /api/videos/:id` with any nonempty sub
 
 `DELETE /api/videos/:id` returns 204 after removing the record and its unshared ImageKit files. A shared thumbnail is retained until its last video reference is removed. Deleting by stored file IDs avoids guessing assets from URLs; owned legacy records without tracked IDs return 409 and require a trusted backfill first.
 
-Deletion first marks the record as pending and hides it from the public feed. ImageKit cleanup failures return 503 and preserve that record for an uploader retry of the same DELETE request. Already-missing files count as cleaned up. Edits to pending deletions return 409. Once deletion completes, subsequent requests for the record return 404. MongoDB leases coordinate saves/deletes for shared files across server workers; contention returns 409 so the caller can retry. Leases expire after 90 seconds if a worker stops. No editing or deletion controls have been added to the frontend.
+Deletion first marks the record as pending and hides it from the public feed. ImageKit cleanup failures return 503 and preserve that record for an uploader retry of the same DELETE request. Already-missing files count as cleaned up. Edits to pending deletions return 409. Once deletion completes, subsequent requests for the record return 404. MongoDB leases coordinate saves/deletes for shared files across server workers; contention returns 409 so the caller can retry. Leases expire after 90 seconds if a worker stops. Editing and deletion controls are available on the uploader’s video cards.
 
 If Node reports a missing Homebrew dynamic library, use an installed working Node LTS version or repair the Node installation. Ensure that version is first in `PATH`, including for subprocesses.
+
+## Frontend
+
+- `/`: real community feed, search and sorting of loaded videos, pagination, playback and share links.
+- `/my-videos`: the signed-in user’s videos, with edit and delete dialogs.
+- `/upload`: choose an MP4 or WebM video and cover, enter a title and description, then publish with progress feedback. Successful uploads are retained for retry if publishing fails.
+- `/login` and `/register`: account forms with password visibility and clear errors.
+- Appearance preferences are saved in the browser; the initial appearance is light.
+
+`app/design-tokens.css` preserves the supplied token file. Shared styles use its semantic color variables. No example videos, made-up activity, or view counts are seeded into the feed.
+
+`GET /api/videos?mine=true` requires a session and filters on its user ID. `GET /api/videos/:id` returns an available video for share links; videos pending deletion are excluded.
+
+## Motion
+
+`app/motion.css` holds the shared motion settings. Headlines reveal once without changing their reserved space; buttons and cards have restrained hover feedback; pending actions use localized spinners and skeletons. Dialogs and notices have brief entrances. The mobile drawer enters from its existing left edge, supports Escape, and returns focus to the menu button.
+
+The Discover banner lazily imports Three.js only after eligible desktop mouse input. Its cube surface has no idle impulses, caps pixel ratio at 2, pauses when settled, and disposes graphics on pointer leave/cancel, blur, hidden/offscreen state, or a capability change. Reduced motion, limited hardware, and graphics failures use the static banner. Reduced-motion preferences also disable the other movement effects. No API, upload, or account behavior is driven by animation.

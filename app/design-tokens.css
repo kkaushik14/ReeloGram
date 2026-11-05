@@ -1,0 +1,154 @@
+/* Universal soft-monochrome design tokens
+   Default: Soft Light. To enable Soft Dark, set data-theme="dark" on <html>.
+   No external assets or runtime dependencies.
+*/
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #F5F4F2;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FBFAF8;
+  --color-surface-muted: #EFEEEC;
+  --color-surface-hover: #EAE8E5;
+  --color-surface-pressed: #E3E0DD;
+  --color-text: #27272A;
+  --color-text-secondary: #525159;
+  --color-text-muted: #66656A;
+  --color-text-inverse: #FFFFFF;
+  --color-border: #E2E0DE;
+  --color-border-strong: #BEBABF;
+  --color-divider: #EAE8E5;
+  --color-accent: #6A4D77;
+  --color-accent-hover: #593E66;
+  --color-accent-pressed: #4C3558;
+  --color-accent-contrast: #FFFFFF;
+  --color-accent-subtle: #F0E9F1;
+  --color-accent-subtle-text: #5A4264;
+  --color-focus: #8E679C;
+  --color-progress: #9873A4;
+  --color-progress-track: #E8E1E9;
+  --color-success: #527966;
+  --color-success-subtle: #EAF1EC;
+  --color-warning: #956B34;
+  --color-warning-subtle: #F5EEE1;
+  --color-danger: #A5535B;
+  --color-danger-subtle: #F7E9EA;
+  --color-info: #665D8B;
+  --color-info-subtle: #EFEDF5;
+  --shadow-sm: 0 1px 2px rgb(24 20 27 / 6%);
+  --shadow-md: 0 6px 18px rgb(24 20 27 / 8%);
+  --shadow-lg: 0 18px 48px rgb(24 20 27 / 14%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #1B1B1D;
+  --color-surface: #27272A;
+  --color-surface-raised: #2D2C30;
+  --color-surface-muted: #303035;
+  --color-surface-hover: #37363B;
+  --color-surface-pressed: #413E45;
+  --color-text: #EAE8E7;
+  --color-text-secondary: #D2D0D0;
+  --color-text-muted: #ADABB1;
+  --color-text-inverse: #1B1B1D;
+  --color-border: #444248;
+  --color-border-strong: #655E68;
+  --color-divider: #38363B;
+  --color-accent: #C8AACF;
+  --color-accent-hover: #D8BDDE;
+  --color-accent-pressed: #E1CBE5;
+  --color-accent-contrast: #1B1B1D;
+  --color-accent-subtle: #3A2D3F;
+  --color-accent-subtle-text: #DEC7E4;
+  --color-focus: #C8AACF;
+  --color-progress: #B28CBE;
+  --color-progress-track: #443849;
+  --color-success: #9ABBA8;
+  --color-success-subtle: #2B4035;
+  --color-warning: #D5AA6D;
+  --color-warning-subtle: #453723;
+  --color-danger: #DA9198;
+  --color-danger-subtle: #472E34;
+  --color-info: #AEA8CF;
+  --color-info-subtle: #333044;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 18%);
+  --shadow-md: 0 6px 18px rgb(0 0 0 / 22%);
+  --shadow-lg: 0 18px 48px rgb(0 0 0 / 32%);
+}
+
+:root {
+  --font-family-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-size-2xs: 0.75rem;     /* 12px */
+  --font-size-xs: 0.8125rem;    /* 13px */
+  --font-size-sm: 0.875rem;     /* 14px */
+  --font-size-md: 1rem;        /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  --font-size-2xl: 1.5rem;     /* 24px */
+  --font-size-3xl: 1.875rem;   /* 30px */
+  --font-size-4xl: 2.25rem;    /* 36px */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.65;
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-caps: 0.06em;
+
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+  --border-width: 1px;
+  --border-width-strong: 2px;
+  --control-height-sm: 36px;
+  --control-height-md: 40px;
+  --control-height-lg: 44px;
+  --hit-target-min: 44px;
+  --content-width: 1280px;
+  --reading-width: 720px;
+  --gutter-mobile: 16px;
+  --gutter-tablet: 24px;
+  --gutter-desktop: 32px;
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 240ms;
+  --duration-deliberate: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-overlay: 30;
+  --z-dialog: 40;
+  --z-toast: 50;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-deliberate: 0ms;
+  }
+}

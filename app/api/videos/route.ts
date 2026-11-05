@@ -14,13 +14,16 @@ const headers = { "Cache-Control": "no-store" };
 export async function GET(req: Request) {
     const query = parseFeedQuery(new URL(req.url).searchParams);
     if (!query) return NextResponse.json({ error: "Invalid limit or cursor" }, { status: 400, headers });
+    const mine = new URL(req.url).searchParams.get("mine") === "true";
+    const session = mine ? await getServerSession(authOptions) : null;
+    if (mine && !session?.user?.id) return NextResponse.json({ error: "Authentication required" }, { status: 401, headers });
     try {
         await connectToDatabase();
         const filter = query.cursor ? { $or: [
             { createdAt: { $lt: query.cursor.createdAt } },
             { createdAt: query.cursor.createdAt, _id: { $lt: new mongoose.Types.ObjectId(query.cursor.id) } },
         ] } : {};
-        const records = await Video.find({ $and: [{ deletionPending: { $ne: true } }, filter] }).sort({ createdAt: -1, _id: -1 }).limit(query.limit + 1).lean<InterFVideo[]>();
+        const records = await Video.find({ $and: [{ deletionPending: { $ne: true } }, mine ? { uploadedBy: session!.user.id } : {}, filter] }).sort({ createdAt: -1, _id: -1 }).limit(query.limit + 1).lean<InterFVideo[]>();
         const page = records.slice(0, query.limit);
         const last = page.at(-1);
         const nextCursor = records.length > query.limit && last ? Buffer.from(JSON.stringify({

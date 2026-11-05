@@ -20,7 +20,8 @@
     "next": "15.5.29",
     "next-auth": "^4.24.11",
     "react": "19.0.9",
-    "react-dom": "19.0.9"
+    "react-dom": "19.0.9",
+    "three": "0.187.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -28,6 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "0.187.0",
     "daisyui": "^4.12.23",
     "eslint": "^9",
     "eslint-config-next": "15.5.29",

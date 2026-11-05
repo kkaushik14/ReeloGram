@@ -11,6 +11,17 @@ type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
 const errorResponse = (error: string, status: number) => NextResponse.json({ error }, { status, headers });
 
+export async function GET(_req: Request, context: Context) {
+    const { id } = await context.params;
+    if (!/^[a-f0-9]{24}$/i.test(id)) return errorResponse("Invalid video ID", 400);
+    try {
+        await connectToDatabase();
+        const video = await Video.findOne({ _id: id, deletionPending: { $ne: true } });
+        if (!video) return errorResponse("Video not found", 404);
+        return NextResponse.json(serializeVideo(video), { headers });
+    } catch { return errorResponse("Video is temporarily unavailable", 503); }
+}
+
 async function authorize(context: Context) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { error: errorResponse("Authentication required", 401) };
