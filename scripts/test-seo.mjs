@@ -128,6 +128,8 @@ try {
   const robots = await (await request("/robots.txt")).text();
   assert.match(robots, /Sitemap: https:\/\/www\.reelogram\.in\/sitemap\.xml/);
   assert.match(robots, /Disallow: \/api\//);
+  assert.match(robots, /Allow: \/api\/videos/);
+  assert.match(robots, /Allow: \/api\/showcase/);
   const index = await (await request("/sitemap.xml")).text();
   validXml(index);
   assert.match(index, /pages.xml/);
