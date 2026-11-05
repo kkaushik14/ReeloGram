@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieSettingsButton from "@/app/components/CookieSettingsButton";
 export default function PrivacyPage() {
   return (
     <article className="content policy-content">
@@ -56,8 +57,10 @@ export default function PrivacyPage() {
           Sign-in uses authentication cookies. Your browser also stores
           appearance and sidebar preferences. The player can use connection and
           device information exposed by your browser to choose a suitable video
-          quality.
+          quality. Your cookie choice is stored in this browser for up to 180 days.
         </p>
+        <p>Optional Google Analytics loads only after you allow analytics cookies. It helps us understand page visits and site usage. Account pages, form details, search queries and password-reset links are excluded from our page-view tracking. Google receives usage and device information when analytics is enabled. Advertising features are disabled. Choosing essential cookies keeps analytics off and leaves sign-in, uploads and playback available.</p>
+        <p>You can withdraw or change your choice at any time using <CookieSettingsButton />. Turning analytics off stops future tracking and removes this site’s Google Analytics cookies. It does not erase data already received by Google.</p>
       </section>
       <section>
         <h2>Managing your information</h2>

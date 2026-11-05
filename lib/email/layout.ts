@@ -17,6 +17,7 @@ type EmailContent = {
   label: string;
   heading: string;
   paragraphs: string[];
+  reason?: string;
   action?: { url: string; label: string };
   note?: { heading: string; text: string };
 };
@@ -35,6 +36,7 @@ function webUrl(value: string) {
 /** Table layout and inline styles keep the same readable card in webmail and Outlook. */
 export function renderEmail(content: EmailContent): EmailMessage {
   const { to, subject, preview, label, heading, paragraphs, action, note } = content;
+  const reason = content.reason || "An update about your ReeloGram account.";
   const origin = webUrl(content.origin).origin;
   const actionUrl = action ? webUrl(action.url).href : undefined;
   if (actionUrl && new URL(actionUrl).origin !== origin)
@@ -44,7 +46,7 @@ export function renderEmail(content: EmailContent): EmailMessage {
     "ReeloGram", heading, ...paragraphs,
     ...(action && actionUrl ? [`${action.label}: ${actionUrl}`] : []),
     ...(note ? [`${note.heading}\n${note.text}`] : []),
-    `Help: ${origin}/help`, `Privacy: ${origin}/privacy`,
+    reason, `Help: ${origin}/help`, `Privacy policy: ${origin}/privacy`, `Terms of use: ${origin}/terms`,
   ].join("\n\n");
   return {
     to, subject, text,
@@ -69,7 +71,7 @@ ${note ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0
 ${action && actionUrl ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed"><tr><td style="padding-top:28px"><p style="margin:0 0 8px;font-size:14px;line-height:22px;color:#66656A">Button not working? Copy this link into your browser:</p><p style="margin:0;font-size:14px;line-height:22px;word-break:break-all;overflow-wrap:anywhere"><a href="${e(actionUrl)}" style="color:#6A4D77;text-decoration:underline;word-break:break-all">${e(actionUrl)}</a></p></td></tr></table>` : ""}
 </td></tr></table>
 <!--[if mso]></td></tr></table><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px"><tr><td align="center" style="padding:24px 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#66656A"><p style="margin:0 0 10px">Sent by <strong style="color:#525159">ReeloGram</strong></p><p style="margin:0"><a href="${e(origin)}/help" style="color:#66656A;text-decoration:underline">Help</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="${e(origin)}/privacy" style="color:#66656A;text-decoration:underline">Privacy</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="${e(origin)}/terms" style="color:#66656A;text-decoration:underline">Terms of use</a></p></td></tr></table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px"><tr><td align="center" style="padding:24px 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:23px;color:#66656A"><p style="margin:0 0 12px">${e(reason)}</p><p style="margin:0 0 12px"><a href="${e(origin)}/help" style="color:#66656A;text-decoration:underline">Help</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="${e(origin)}/privacy" style="color:#66656A;text-decoration:underline">Privacy policy</a>&nbsp;&nbsp;&middot;&nbsp;&nbsp;<a href="${e(origin)}/terms" style="color:#66656A;text-decoration:underline">Terms of use</a></p><p style="margin:0">&copy; ${new Date().getFullYear()} <strong style="color:#525159">ReeloGram</strong></p></td></tr></table>
 </td></tr></table></body></html>`,
   };
 }

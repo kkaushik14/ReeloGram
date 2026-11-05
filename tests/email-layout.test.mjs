@@ -18,6 +18,9 @@ test("messages preserve a complete plain-text alternative and escape all user-fa
   const url = "https://app.example/reset-password#token=" + "x".repeat(43);
   const reset = passwordResetEmail("a@example.invalid", url);
   assert.ok(reset.text.includes(url));
+  assert.ok(reset.text.includes("Terms of use: https://app.example/terms"));
+  assert.ok(reset.html.includes('href="https://app.example/terms"'));
+  assert.ok(reset.html.includes("because a password reset was requested"));
   assert.match(reset.text, /20 minutes/);
   assert.match(reset.html, /https:\/\/app\.example\/email-logo\.png/);
   assert.match(passwordChangedEmail("a@example.invalid", "https://app.example").text, /previous sign-ins have been closed/);

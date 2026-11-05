@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Aperture, ArrowUpRight } from "lucide-react";
+import CookieSettingsButton from "./CookieSettingsButton";
 export default function SiteFooter() {
   return (
     <footer className="site-footer">
@@ -40,6 +41,7 @@ export default function SiteFooter() {
           <h2>The details</h2>
           <Link href="/terms">Terms of use</Link>
           <Link href="/privacy">Privacy policy</Link>
+          <CookieSettingsButton />
           <a
             href="https://github.com/kkaushik14/ReeloGram"
             target="_blank"
