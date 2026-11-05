@@ -9,8 +9,8 @@ export async function connectToDatabase() {
         cached.promise = null;
     }
     if (!cached.promise) {
-        const uri = process.env.MONGODB_URL;
-        if (!uri) throw new Error("MONGODB_URL is not configured");
+        const uri = process.env.REELOGRAM_MONGODB_URL;
+        if (!uri) throw new Error("REELOGRAM_MONGODB_URL is not configured");
         cached.promise = mongoose.connect(uri, {
             bufferCommands: false,
             maxPoolSize: 10,

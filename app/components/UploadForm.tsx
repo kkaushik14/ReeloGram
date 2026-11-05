@@ -71,7 +71,7 @@ export default function UploadForm() {
     data.set("file", file);
     data.set("fileName", file.name);
     data.set("folder", type === "video" ? "/videos" : "/images");
-    data.set("publicKey", process.env.NEXT_PUBLIC_PUBLIC_KEY || "");
+    data.set("publicKey", process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY || "");
     for (const key of ["signature", "token", "expire"])
       data.set(key, String(auth[key]));
     const id = await new Promise<string>((resolve, reject) => {

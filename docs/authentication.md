@@ -18,23 +18,23 @@ The application uses NextAuth credentials, MongoDB account records and a separat
 Set these in `.env.local` on the server:
 
 ```dotenv
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your-mailbox@example.com
-SMTP_PASSWORD=your-provider-app-password
-EMAIL_FROM="ReeloGram <your-mailbox@example.com>"
+REELOGRAM_EMAIL_PROVIDER=smtp
+REELOGRAM_SMTP_HOST=smtp.example.com
+REELOGRAM_SMTP_PORT=587
+REELOGRAM_SMTP_USER=your-mailbox@example.com
+REELOGRAM_SMTP_PASSWORD=your-provider-app-password
+REELOGRAM_EMAIL_FROM="ReeloGram <your-mailbox@example.com>"
 # Optional:
-EMAIL_REPLY_TO=your-support-address@example.com
+REELOGRAM_EMAIL_REPLY_TO=your-support-address@example.com
 # Set to 1 for implicit TLS on a custom port. Port 465 uses it automatically.
-SMTP_SECURE=0
+REELOGRAM_SMTP_SECURE=0
 ```
 
 Port 587 requires STARTTLS. Port 465 uses implicit TLS. Certificate verification remains enabled. The provider may require an application password rather than the normal account password.
 
-`APP_URL`, or otherwise `NEXTAUTH_URL`, determines links in messages. Use HTTPS in a public environment; HTTP is accepted only for local development. Links are never constructed from a visitor-supplied Host header. Change the local URL to the actual public origin before deployment.
+`REELOGRAM_APP_URL`, or otherwise `REELOGRAM_NEXTAUTH_URL`, determines links in messages. Use HTTPS in a public environment; HTTP is accepted only for local development. Links are never constructed from a visitor-supplied Host header. Change the local URL to the actual public origin before deployment.
 
-The optional Resend adapter uses `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` and the same `EMAIL_FROM`. It does not change calling code.
+The optional Resend adapter uses `REELOGRAM_EMAIL_PROVIDER=resend`, `REELOGRAM_RESEND_API_KEY` and the same `REELOGRAM_EMAIL_FROM`. It does not change calling code.
 
 Account-created, posted-video and password-changed messages are queued after the main action succeeds. A mail outage does not undo a successful account or video save. Delivery has a one-minute lease, stable event keys, five bounded attempts and exponential retry delays. Sent payloads are removed; deduplication metadata and unprocessed messages expire after seven days. Run `npm run email:retry` from a scheduled server job to process due retries. SMTP has no universal idempotency guarantee; stable Message-IDs help downstream deduplication but cannot guarantee exactly-once delivery after an ambiguous network timeout.
 
@@ -67,7 +67,7 @@ Email addresses are canonicalized and restricted to a single conventional addres
 
 MongoDB fixed-window counters limit email identification, registration, login, recovery and reset attempts. Keys are HMAC hashes; raw emails and network addresses are not stored in the counter collection. Counters use atomic updates and automatic expiry. Requests fail closed if the counter database is unavailable. Login throttling returns an ordinary authentication failure with a wait message; JSON endpoints return 429 and Retry-After.
 
-Forwarded network addresses are ignored by default to prevent a client from bypassing limits by spoofing headers. The fallback is a shared network bucket plus per-account limits. Set `AUTH_TRUST_PROXY=1` only behind a proxy that overwrites untrusted `X-Forwarded-For` headers. Do not enable it for a server directly reachable by arbitrary clients.
+Forwarded network addresses are ignored by default to prevent a client from bypassing limits by spoofing headers. The fallback is a shared network bucket plus per-account limits. Set `REELOGRAM_AUTH_TRUST_PROXY=1` only behind a proxy that overwrites untrusted `X-Forwarded-For` headers. Do not enable it for a server directly reachable by arbitrary clients.
 
 Video authorization remains uploader-only and server-enforced. Client-supplied uploader IDs and delivery URLs are ignored. ImageKit file IDs, media type, size and visibility are verified before saving. Public owner metadata omits email and date of birth.
 

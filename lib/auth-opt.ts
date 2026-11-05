@@ -1,3 +1,4 @@
+import "@/lib/auth/environment";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import User from "@/models/User";
@@ -157,5 +158,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
   },
 
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.REELOGRAM_NEXTAUTH_SECRET,
 };

@@ -1,3 +1,4 @@
+import "@/lib/auth/environment";
 import type { Metadata } from "next";
 import "./globals.css";
 import "./motion.css";

@@ -7,8 +7,8 @@ export type EmailMessage = {
 };
 export class EmailConfigurationError extends Error {}
 export function appOrigin() {
-  const value = process.env.APP_URL || process.env.NEXTAUTH_URL;
-  if (!value) throw new EmailConfigurationError("Set APP_URL or NEXTAUTH_URL");
+  const value = process.env.REELOGRAM_APP_URL || process.env.REELOGRAM_NEXTAUTH_URL;
+  if (!value) throw new EmailConfigurationError("Set REELOGRAM_APP_URL or REELOGRAM_NEXTAUTH_URL");
   const url = new URL(value);
   if (
     url.protocol !== "https:" &&
@@ -22,28 +22,28 @@ export function appOrigin() {
 }
 export function emailConfigured() {
   return (
-    !!process.env.EMAIL_FROM &&
-    (process.env.EMAIL_PROVIDER === "smtp"
-      ? !!process.env.SMTP_HOST &&
-        !!process.env.SMTP_USER &&
-        !!process.env.SMTP_PASSWORD
-      : !!process.env.RESEND_API_KEY)
+    !!process.env.REELOGRAM_EMAIL_FROM &&
+    (process.env.REELOGRAM_EMAIL_PROVIDER === "smtp"
+      ? !!process.env.REELOGRAM_SMTP_HOST &&
+        !!process.env.REELOGRAM_SMTP_USER &&
+        !!process.env.REELOGRAM_SMTP_PASSWORD
+      : !!process.env.REELOGRAM_RESEND_API_KEY)
   );
 }
 export async function sendEmail(message: EmailMessage, idempotencyKey: string) {
   if (!emailConfigured())
     throw new EmailConfigurationError("Email sender is not configured");
-  if (/[\r\n]/.test(message.to + message.subject + process.env.EMAIL_FROM))
+  if (/[\r\n]/.test(message.to + message.subject + process.env.REELOGRAM_EMAIL_FROM))
     throw Error("Invalid email headers");
-  if (process.env.EMAIL_PROVIDER === "smtp") {
+  if (process.env.REELOGRAM_EMAIL_PROVIDER === "smtp") {
     const { default: nodemailer } = await import("nodemailer");
-    const port = Number(process.env.SMTP_PORT || 587);
+    const port = Number(process.env.REELOGRAM_SMTP_PORT || 587);
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: process.env.REELOGRAM_SMTP_HOST,
       port,
-      secure: process.env.SMTP_SECURE === "1" || port === 465,
-      requireTLS: !(process.env.SMTP_SECURE === "1" || port === 465),
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+      secure: process.env.REELOGRAM_SMTP_SECURE === "1" || port === 465,
+      requireTLS: !(process.env.REELOGRAM_SMTP_SECURE === "1" || port === 465),
+      auth: { user: process.env.REELOGRAM_SMTP_USER, pass: process.env.REELOGRAM_SMTP_PASSWORD },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
@@ -51,8 +51,8 @@ export async function sendEmail(message: EmailMessage, idempotencyKey: string) {
     try {
       await transporter.sendMail({
         ...message,
-        from: process.env.EMAIL_FROM,
-        replyTo: process.env.EMAIL_REPLY_TO,
+        from: process.env.REELOGRAM_EMAIL_FROM,
+        replyTo: process.env.REELOGRAM_EMAIL_REPLY_TO,
         messageId: `<${createHash("sha256").update(idempotencyKey).digest("hex")}@${new URL(appOrigin()).hostname}>`,
       });
     } finally {
@@ -63,16 +63,16 @@ export async function sendEmail(message: EmailMessage, idempotencyKey: string) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      Authorization: `Bearer ${process.env.REELOGRAM_RESEND_API_KEY}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
     body: JSON.stringify({
       ...message,
       to: [message.to],
-      from: process.env.EMAIL_FROM,
-      ...(process.env.EMAIL_REPLY_TO
-        ? { reply_to: process.env.EMAIL_REPLY_TO }
+      from: process.env.REELOGRAM_EMAIL_FROM,
+      ...(process.env.REELOGRAM_EMAIL_REPLY_TO
+        ? { reply_to: process.env.REELOGRAM_EMAIL_REPLY_TO }
         : {}),
     }),
     signal: AbortSignal.timeout(15000),

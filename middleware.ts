@@ -1,3 +1,4 @@
+import "@/lib/auth/environment";
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -9,7 +10,7 @@ export async function middleware(req: NextRequest) {
         (req.method === "GET" && (pathname === "/api/showcase" || pathname === "/api/videos" || pathname.startsWith("/api/videos/")))) {
         return NextResponse.next();
     }
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({ req, secret: process.env.REELOGRAM_NEXTAUTH_SECRET });
     if (token) return NextResponse.next();
     if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Authentication required" }, { status: 401 });

@@ -171,7 +171,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       )
         return;
       const controller = new AbortController();
-      const endpoint = process.env.NEXT_PUBLIC_URL_ENDPOINT ?? "";
+      const endpoint = process.env.NEXT_PUBLIC_REELOGRAM_URL_ENDPOINT ?? "";
       if (imageKitVideoBase(src, endpoint)) {
         void probe(
           progressiveVideoUrl(src, endpoint, 360),
@@ -242,7 +242,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         { width: sourceSize?.width, height: sourceSize?.height },
         element.clientWidth,
       );
-      const endpoint = process.env.NEXT_PUBLIC_URL_ENDPOINT ?? "";
+      const endpoint = process.env.NEXT_PUBLIC_REELOGRAM_URL_ENDPOINT ?? "";
       const imagekit = !!imageKitVideoBase(src, endpoint);
       const initialTime = resume.current.src === src ? resume.current.time : 0;
       let savedTime = initialTime;

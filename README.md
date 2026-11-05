@@ -14,7 +14,7 @@ npm ci
 cp env.sample .env.local
 ```
 
-Set `MONGODB_URL` to your MongoDB connection string. Generate a unique `NEXTAUTH_SECRET` with `openssl rand -base64 32` and set `NEXTAUTH_URL=http://localhost:3000`. Fill in the ImageKit public key, URL endpoint and private key to enable uploads. Keep the private key server-side. Environment files are ignored by Git.
+Set `REELOGRAM_MONGODB_URL` to your MongoDB connection string. Generate a unique `REELOGRAM_NEXTAUTH_SECRET` with `openssl rand -base64 32` and set `REELOGRAM_NEXTAUTH_URL=http://localhost:3000`. Fill in the ImageKit public key, URL endpoint and private key to enable uploads. Keep the private key server-side. Environment files are ignored by Git.
 
 ```sh
 npm run dev
@@ -43,7 +43,7 @@ npm run test:e2e -- --configured-db --imagekit
 
 The default run starts a disposable MongoDB database and an isolated Next.js server on an available local port. On first use, it downloads MongoDB's test binary. It checks concurrent registration, duplicate email rejection, password hashing, invalid credentials, session creation, logout, upload access control, feed validation, and controlled database outage errors. It leaves the normal development server and frontend unchanged.
 
-`--imagekit` enables real PNG, video, and PDF uploads with the configured ImageKit credentials. It saves two uploaded videos, verifies their MongoDB records, tests duplicate/non-video/missing-file rejection and anonymous feed pagination, then checks uploader-only edits/deletes using a second account. It also verifies ImageKit file removal, shared-thumbnail retention, lock contention, and recovery from an interrupted deletion. `--configured-db` uses `MONGODB_URL` instead of the disposable database and removes only this run's test accounts and video records afterward. Outage simulation runs only with the disposable database. These service tests require network access and working credentials in `.env.local`; no credentials are logged or committed.
+`--imagekit` enables real PNG, video, and PDF uploads with the configured ImageKit credentials. It saves two uploaded videos, verifies their MongoDB records, tests duplicate/non-video/missing-file rejection and anonymous feed pagination, then checks uploader-only edits/deletes using a second account. It also verifies ImageKit file removal, shared-thumbnail retention, lock contention, and recovery from an interrupted deletion. `--configured-db` uses `REELOGRAM_MONGODB_URL` instead of the disposable database and removes only this run's test accounts and video records afterward. Outage simulation runs only with the disposable database. These service tests require network access and working credentials in `.env.local`; no credentials are logged or committed.
 
 For manual form checks, add `--hold` to keep the temporary app running. The runner prints its local URL and process ID; send SIGINT to that process to finish cleanup. Generated test build/configuration files are ignored by Git.
 
@@ -146,3 +146,13 @@ Start with an email on `/login` or `/register`. Existing users enter a password;
 The shared footer links to Help, Terms of use and Privacy policy and is absent on authentication pages. The sidebar stays fixed without its own scrollbar. Route, feed, Reel, account and upload skeletons reserve the expected space while content is loading. The HLS implementation is loaded only when a browser needs it; account and video notifications run after successful responses.
 
 `npm run test:email` separately tests SMTP rejection/retry, concurrent worker leases, event deduplication and payload expiry against a local TLS inbox and disposable MongoDB. It does not send internet mail.
+
+## Vercel environment variables
+
+All deployment-facing application settings are namespaced with `REELOGRAM_`; use the complete list in [`env.sample`](env.sample). Examples include `REELOGRAM_MONGODB_URL`, `REELOGRAM_PRIVATE_KEY`, `REELOGRAM_EMAIL_PROVIDER` and `REELOGRAM_SMTP_PASSWORD`. The local `.env` and `.env.local` files use the same names. Existing unprefixed application values are ignored.
+
+Set `REELOGRAM_NEXTAUTH_URL` to your actual **HTTPS production address**, such as `https://your-app.vercel.app`, and configure a strong `REELOGRAM_NEXTAUTH_SECRET`. A server-only adapter supplies NextAuth's reserved URL/secret names internally. You do not need to add unprefixed NextAuth variables in Vercel.
+
+The public deployment inputs are `REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY` and `REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT`. `next.config.ts` explicitly maps only these two public ImageKit settings to the browser's `NEXT_PUBLIC_REELOGRAM_*` names. Database, SMTP, authentication and ImageKit private credentials are never included in that mapping. Rebuild/redeploy after changing public values so the browser bundle receives them.
+
+Add the new names to the intended Vercel project/environment and redeploy. If a namespaced key already exists, edit its value rather than creating another entry with the same name and target. Old unprefixed keys can be removed after the renamed configuration is deployed successfully.

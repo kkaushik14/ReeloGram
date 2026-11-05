@@ -20,12 +20,15 @@ nextRequire("@next/env").loadEnvConfig(process.cwd());
 const liveUploads = process.argv.includes("--imagekit");
 const configuredDatabase = process.argv.includes("--configured-db");
 if (configuredDatabase)
-  assert.ok(process.env.MONGODB_URL, "MONGODB_URL must be configured");
+  assert.ok(
+    process.env.REELOGRAM_MONGODB_URL,
+    "REELOGRAM_MONGODB_URL must be configured",
+  );
 if (liveUploads) {
   for (const key of [
-    "NEXT_PUBLIC_PUBLIC_KEY",
-    "PRIVATE_KEY",
-    "NEXT_PUBLIC_URL_ENDPOINT",
+    "REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY",
+    "REELOGRAM_PRIVATE_KEY",
+    "REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT",
   ]) {
     assert.ok(
       process.env[key],
@@ -101,7 +104,7 @@ async function waitEmail(subject, offset = 0) {
 }
 async function signIn(input, expected = 200) {
   const { csrfToken } = await (await request("/api/auth/csrf")).json();
-  return request("/api/auth/callback/credentials", {
+  const response = await request("/api/auth/callback/credentials", {
     form: {
       csrfToken,
       email: input.email,
@@ -110,6 +113,13 @@ async function signIn(input, expected = 200) {
     },
     expected,
   });
+  const result = await response.clone().json();
+  assert.equal(
+    new URL(result.url).origin,
+    base,
+    "NextAuth must use the namespaced canonical URL",
+  );
+  return response;
 }
 
 try {
@@ -125,7 +135,7 @@ try {
     });
   }
   databaseUri = configuredDatabase
-    ? process.env.MONGODB_URL
+    ? process.env.REELOGRAM_MONGODB_URL
     : database.getUri();
   let ready = false;
   server = spawn(
@@ -142,12 +152,12 @@ try {
       env: {
         ...process.env,
         ...mail.env,
-        APP_URL: base,
+        REELOGRAM_APP_URL: base,
         PATH: dirname(process.execPath) + ":" + process.env.PATH,
-        MONGODB_URL: databaseUri,
-        NEXTAUTH_URL: base,
-        NEXTAUTH_SECRET: randomBytes(32).toString("hex"),
-        E2E_DIST_DIR: ".next-e2e",
+        REELOGRAM_MONGODB_URL: databaseUri,
+        REELOGRAM_NEXTAUTH_URL: base,
+        REELOGRAM_NEXTAUTH_SECRET: randomBytes(32).toString("hex"),
+        REELOGRAM_E2E_DIST_DIR: ".next-e2e",
       },
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -336,9 +346,9 @@ try {
 
   if (liveUploads) {
     const mediaLibrary = new ImageKit({
-      publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY,
-      privateKey: process.env.PRIVATE_KEY,
-      urlEndpoint: process.env.NEXT_PUBLIC_URL_ENDPOINT,
+      publicKey: process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY,
+      privateKey: process.env.REELOGRAM_PRIVATE_KEY,
+      urlEndpoint: process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
     });
     let thumbnailFile;
     const savedVideos = [];
@@ -361,7 +371,7 @@ try {
       );
       form.set("fileName", `e2e-${runId}-${fixture.name}`);
       form.set("folder", fixture.folder);
-      form.set("publicKey", process.env.NEXT_PUBLIC_PUBLIC_KEY);
+      form.set("publicKey", process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
       for (const key of ["token", "expire", "signature"])
         form.set(key, String(auth[key]));
       const upload = await fetch(
@@ -484,22 +494,20 @@ try {
     const sourceDb = await mongoose.createConnection(databaseUri).asPromise();
     try {
       for (const provider of ["Pexels", "Pixabay", "Coverr", "Mixkit"]) {
-        await sourceDb
-          .collection("videos")
-          .updateOne(
-            { fileId: savedVideos[0].fileId },
-            {
-              $set: {
-                source: {
-                  provider,
-                  id: `e2e-${runId}`,
-                  creator: `Credit ${runId}`,
-                  url: "https://www.pexels.com/videos/",
-                  license: "https://www.pexels.com/license/",
-                },
+        await sourceDb.collection("videos").updateOne(
+          { fileId: savedVideos[0].fileId },
+          {
+            $set: {
+              source: {
+                provider,
+                id: `e2e-${runId}`,
+                creator: `Credit ${runId}`,
+                url: "https://www.pexels.com/videos/",
+                license: "https://www.pexels.com/license/",
               },
             },
-          );
+          },
+        );
         const filtered = await (
           await request(
             `/api/videos?q=${runId}&source=${provider.toLowerCase()}`,
@@ -792,11 +800,9 @@ try {
         (error) => error.$ResponseMetadata?.statusCode === 404,
       );
       assert.equal(
-        await db
-          .collection("videos")
-          .countDocuments({
-            fileId: { $in: savedVideos.map((video) => video.fileId) },
-          }),
+        await db.collection("videos").countDocuments({
+          fileId: { $in: savedVideos.map((video) => video.fileId) },
+        }),
         0,
       );
     } finally {
@@ -1069,9 +1075,9 @@ try {
 } finally {
   if (uploaded.length) {
     const imagekit = new ImageKit({
-      publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY,
-      privateKey: process.env.PRIVATE_KEY,
-      urlEndpoint: process.env.NEXT_PUBLIC_URL_ENDPOINT,
+      publicKey: process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY,
+      privateKey: process.env.REELOGRAM_PRIVATE_KEY,
+      urlEndpoint: process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
     });
     for (const fileId of uploaded) {
       try {
@@ -1108,11 +1114,9 @@ try {
           .countDocuments({ fileId: { $in: uploaded } }),
         0,
       );
-      await connection
-        .collection("emailjobs")
-        .deleteMany({
-          to: { $in: [email, otherEmail, `reset-${runId}@example.invalid`] },
-        });
+      await connection.collection("emailjobs").deleteMany({
+        to: { $in: [email, otherEmail, `reset-${runId}@example.invalid`] },
+      });
       await connection
         .collection("users")
         .deleteMany({ email: { $in: [email, otherEmail] } });

@@ -20,7 +20,7 @@ export async function readAuthJson(
   const origin = request.headers.get("origin");
   if (origin) {
     const allowed = new Set([new URL(request.url).origin]);
-    for (const value of [process.env.APP_URL, process.env.NEXTAUTH_URL]) {
+    for (const value of [process.env.REELOGRAM_APP_URL, process.env.REELOGRAM_NEXTAUTH_URL]) {
       if (value) allowed.add(new URL(value).origin);
     }
     if (!allowed.has(origin))

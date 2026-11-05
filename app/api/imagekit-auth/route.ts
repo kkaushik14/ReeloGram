@@ -6,9 +6,9 @@ import { authOptions } from "@/lib/auth-opt";
 export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    const publicKey = process.env.NEXT_PUBLIC_PUBLIC_KEY;
-    const privateKey = process.env.PRIVATE_KEY;
-    const urlEndpoint = process.env.NEXT_PUBLIC_URL_ENDPOINT;
+    const publicKey = process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY;
+    const privateKey = process.env.REELOGRAM_PRIVATE_KEY;
+    const urlEndpoint = process.env.NEXT_PUBLIC_REELOGRAM_URL_ENDPOINT;
     if (!publicKey || !privateKey || !urlEndpoint) {
         return NextResponse.json({ error: "Uploads are not configured" }, { status: 503 });
     }

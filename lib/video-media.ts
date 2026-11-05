@@ -7,7 +7,7 @@ export class MediaNotFoundError extends Error {}
 type MediaFile = { url: string; mime?: string; size: number; width?: number; height?: number; isPrivateFile: boolean };
 
 async function mediaRequest(fileId: string, method: "GET" | "DELETE") {
-    const key = process.env.PRIVATE_KEY;
+    const key = process.env.REELOGRAM_PRIVATE_KEY;
     if (!key) throw new Error("ImageKit is not configured");
     return fetch(`https://api.imagekit.io/v1/files/${encodeURIComponent(fileId)}${method === "GET" ? "/details" : ""}`, {
         method, headers: { Authorization: `Basic ${Buffer.from(key + ":").toString("base64")}` },

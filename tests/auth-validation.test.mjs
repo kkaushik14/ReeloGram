@@ -77,10 +77,10 @@ test("Resend transport is reusable, authenticated and uses stable idempotency ke
   const saved = { ...process.env };
   const original = globalThis.fetch;
   try {
-    process.env.RESEND_API_KEY = "test-provider-key";
-    process.env.EMAIL_FROM = "hello@example.com";
-    delete process.env.EMAIL_PROVIDER;
-    process.env.APP_URL = "https://app.example";
+    process.env.REELOGRAM_RESEND_API_KEY = "test-provider-key";
+    process.env.REELOGRAM_EMAIL_FROM = "hello@example.com";
+    delete process.env.REELOGRAM_EMAIL_PROVIDER;
+    process.env.REELOGRAM_APP_URL = "https://app.example";
     let input;
     globalThis.fetch = async (url, options) => {
       input = { url, ...options };
@@ -106,7 +106,7 @@ test("Resend transport is reusable, authenticated and uses stable idempotency ke
       ),
       (error) => error.message === "Email delivery failed (429)",
     );
-    process.env.APP_URL = "http://untrusted.example";
+    process.env.REELOGRAM_APP_URL = "http://untrusted.example";
     assert.throws(() => appOrigin());
   } finally {
     globalThis.fetch = original;

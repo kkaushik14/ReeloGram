@@ -6,9 +6,9 @@ const require = createRequire(import.meta.url);
 createRequire(require.resolve("next/package.json"))("@next/env").loadEnvConfig(
   process.cwd(),
 );
-assert.ok(process.env.MONGODB_URL, "Configure MongoDB first");
+assert.ok(process.env.REELOGRAM_MONGODB_URL, "Configure MongoDB first");
 try {
-  await mongoose.connect(process.env.MONGODB_URL, {
+  await mongoose.connect(process.env.REELOGRAM_MONGODB_URL, {
     serverSelectionTimeoutMS: 10000,
   });
   const videos = mongoose.connection.collection("videos");

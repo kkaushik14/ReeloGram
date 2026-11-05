@@ -7,11 +7,11 @@ createRequire(require.resolve("next/package.json"))("@next/env").loadEnvConfig(
   process.cwd(),
 );
 assert.ok(
-  process.env.MONGODB_URL && process.env.NEXT_PUBLIC_URL_ENDPOINT,
+  process.env.REELOGRAM_MONGODB_URL && process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
   "Configure MongoDB and ImageKit first",
 );
 try {
-  await mongoose.connect(process.env.MONGODB_URL, {
+  await mongoose.connect(process.env.REELOGRAM_MONGODB_URL, {
     serverSelectionTimeoutMS: 10000,
   });
   const records = await mongoose.connection
@@ -26,7 +26,7 @@ try {
   const jobs = records.flatMap((video) =>
     videoPreparationUrls(
       video.videoUrl,
-      process.env.NEXT_PUBLIC_URL_ENDPOINT,
+      process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
       video.placement === "hero" ? "hero" : "watch",
       video.transformatioon,
     ).map((url) => ({ title: video.title, url })),

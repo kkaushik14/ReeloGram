@@ -6,7 +6,7 @@ createRequire(require.resolve("next/package.json"))("@next/env").loadEnvConfig(
   process.cwd(),
 );
 try {
-  await mongoose.connect(process.env.MONGODB_URL, {
+  await mongoose.connect(process.env.REELOGRAM_MONGODB_URL, {
     serverSelectionTimeoutMS: 10000,
   });
   await deliverQueuedEmails();

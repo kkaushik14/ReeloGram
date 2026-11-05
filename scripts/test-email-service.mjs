@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startEmailTestServer } from "./email-test-server.mjs";
 // A child process loads the test CA before Node initializes TLS trust.
-if (!process.env.EMAIL_TEST_WORKER) {
+if (!process.env.REELOGRAM_EMAIL_TEST_WORKER) {
   const mail = await startEmailTestServer();
   const db = await MongoMemoryServer.create({
     instance: { dbName: "reelogram_email" },
@@ -21,9 +21,9 @@ if (!process.env.EMAIL_TEST_WORKER) {
         env: {
           ...process.env,
           ...mail.env,
-          EMAIL_TEST_WORKER: "1",
-          MONGODB_URL: db.getUri(),
-          APP_URL: "http://127.0.0.1:3000",
+          REELOGRAM_EMAIL_TEST_WORKER: "1",
+          REELOGRAM_MONGODB_URL: db.getUri(),
+          REELOGRAM_APP_URL: "http://127.0.0.1:3000",
         },
         stdio: ["ignore", "inherit", "inherit", "ipc"],
       },
@@ -47,7 +47,7 @@ if (!process.env.EMAIL_TEST_WORKER) {
     await import("../lib/email/outbox.ts");
   const { default: EmailJob } = await import("../models/EmailJob.ts");
   try {
-    await mongoose.connect(process.env.MONGODB_URL);
+    await mongoose.connect(process.env.REELOGRAM_MONGODB_URL);
     await EmailJob.init();
     const message = {
       to: "account@example.invalid",

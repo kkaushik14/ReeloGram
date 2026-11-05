@@ -13,8 +13,8 @@ if (!process.argv.includes("--apply")) {
 }
 const require=createRequire(import.meta.url);
 createRequire(require.resolve("next/package.json"))("@next/env").loadEnvConfig(process.cwd());
-for(const key of ["MONGODB_URL","NEXT_PUBLIC_PUBLIC_KEY","PRIVATE_KEY","NEXT_PUBLIC_URL_ENDPOINT"]) assert.ok(process.env[key],`${key} must be configured`);
-const imagekit=new ImageKit({publicKey:process.env.NEXT_PUBLIC_PUBLIC_KEY,privateKey:process.env.PRIVATE_KEY,urlEndpoint:process.env.NEXT_PUBLIC_URL_ENDPOINT});
+for(const key of ["REELOGRAM_MONGODB_URL","REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY","REELOGRAM_PRIVATE_KEY","REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT"]) assert.ok(process.env[key],`${key} must be configured`);
+const imagekit=new ImageKit({publicKey:process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY,privateKey:process.env.REELOGRAM_PRIVATE_KEY,urlEndpoint:process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT});
 
 async function verify(url, host, type, maxBytes){
     const parsed=new URL(url);
@@ -27,7 +27,7 @@ async function verify(url, host, type, maxBytes){
     assert.ok(bytes>0&&bytes<=maxBytes,"Source file exceeds the upload limit");
 }
 try{
-    await mongoose.connect(process.env.MONGODB_URL,{serverSelectionTimeoutMS:10000});
+    await mongoose.connect(process.env.REELOGRAM_MONGODB_URL,{serverSelectionTimeoutMS:10000});
     const videos=mongoose.connection.collection("videos");
     await videos.createIndex({"source.id":1},{unique:true,sparse:true});
     for(const clip of featuredClips){

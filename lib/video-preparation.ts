@@ -5,7 +5,7 @@ export async function prepareVideoPlayback(
   src: string,
   source?: VideoDimensions,
 ) {
-  const endpoint = process.env.NEXT_PUBLIC_URL_ENDPOINT ?? "";
+  const endpoint = process.env.NEXT_PUBLIC_REELOGRAM_URL_ENDPOINT ?? "";
   const urls = videoPreparationUrls(src, endpoint, "watch", source);
   // Limit concurrent requests; never download the original or a complete rendition.
   for (let index = 0; index < urls.length; index += 2) {

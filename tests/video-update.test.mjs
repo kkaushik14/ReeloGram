@@ -12,9 +12,9 @@ test("partial edits preserve false, trim text, and forbid ownership or media cha
 });
 
 test("ImageKit deletion treats missing files as cleaned up but preserves service failures for retry", async (t) => {
-    const previous = process.env.PRIVATE_KEY;
-    process.env.PRIVATE_KEY = "test-only-key";
-    t.after(() => { if (previous === undefined) delete process.env.PRIVATE_KEY; else process.env.PRIVATE_KEY = previous; });
+    const previous = process.env.REELOGRAM_PRIVATE_KEY;
+    process.env.REELOGRAM_PRIVATE_KEY = "test-only-key";
+    t.after(() => { if (previous === undefined) delete process.env.REELOGRAM_PRIVATE_KEY; else process.env.REELOGRAM_PRIVATE_KEY = previous; });
     const fetch = t.mock.method(globalThis, "fetch", async () => new Response(null, { status: 404 }));
     await deleteMediaFile("already-deleted");
     fetch.mock.mockImplementation(async () => new Response(null, { status: 503 }));

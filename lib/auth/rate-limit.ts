@@ -18,7 +18,7 @@ export async function limitAuth(
   subject: string,
   headers: Headers,
 ) {
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = process.env.REELOGRAM_NEXTAUTH_SECRET;
   if (!secret) throw Error("Account protection is not configured");
   const connection = await connectToDatabase();
   const buckets = connection.collection<{
@@ -33,7 +33,7 @@ export async function limitAuth(
   const end = (window + 1) * seconds * 1000;
   // Forwarded headers are trusted only behind an explicitly configured, sanitizing proxy.
   const address =
-    process.env.AUTH_TRUST_PROXY === "1"
+    process.env.REELOGRAM_AUTH_TRUST_PROXY === "1"
       ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
       : "shared";
   const hash = (value: string) =>
