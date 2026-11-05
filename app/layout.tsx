@@ -3,6 +3,7 @@ import "./globals.css";
 import "./motion.css";
 import "./interactions.css";
 import "./discovery.css";
+import "./refinements.css";
 import Providers from "./components/Providers";
 import AppShell from "./components/AppShell";
 export const metadata: Metadata = { title: "ReeloGram — Stories in motion", description: "Discover a fresh perspective. Watch and share videos on ReeloGram." };

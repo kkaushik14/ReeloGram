@@ -49,3 +49,14 @@ test("long Unicode search terms survive cursor pagination", () => {
     const cursor = Buffer.from(JSON.stringify({id: "a".repeat(24), createdAt: new Date().toISOString(), context: query.context})).toString("base64url");
     assert.ok(parseFeedQuery(new URLSearchParams({q, cursor})));
 });
+
+
+test("all featured providers are valid and have isolated cursors", () => {
+    for (const source of ["pexels","pixabay","coverr","mixkit"]) {
+        const parsed = parseFeedQuery(new URLSearchParams({source}));
+        assert.equal(parsed.source,source);
+        const cursor = Buffer.from(JSON.stringify({id:"a".repeat(24),createdAt:new Date().toISOString(),context:parsed.context})).toString("base64url");
+        assert.ok(parseFeedQuery(new URLSearchParams({source,cursor})));
+        assert.equal(parseFeedQuery(new URLSearchParams({source:"community",cursor})),null);
+    }
+});

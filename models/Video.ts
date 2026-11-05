@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, models } from "mongoose";
+import type {VideoSource} from "@/lib/video-sources";
 
 export const VIDEO_DIMENSION = {
     width: 1080,
@@ -6,7 +7,8 @@ export const VIDEO_DIMENSION = {
 } as const
 
 export interface InterFVideo {
-    source?: { provider: "Pexels"; id: string; url: string; creator: string; license: string };
+    placement?: "feed" | "hero";
+    source?: { provider: VideoSource; id: string; url: string; creator: string; license: string };
     _id?: mongoose.Types.ObjectId;
     fileId?: string;
     thumbnailFileId?: string;
@@ -27,7 +29,8 @@ export interface InterFVideo {
 }
 
 const videoSchema = new Schema<InterFVideo>({
-    source: {type: new Schema({provider: {type: String, enum: ["Pexels"], required: true}, id: {type: String, required: true}, url: {type: String, required: true}, creator: {type: String, required: true}, license: {type: String, required: true}}, {_id: false})},
+    placement: {type: String, enum: ["feed","hero"], default: "feed"},
+    source: {type: new Schema({provider: {type: String, enum: ["Pexels","Pixabay","Coverr","Mixkit"], required: true}, id: {type: String, required: true}, url: {type: String, required: true}, creator: {type: String, required: true}, license: {type: String, required: true}}, {_id: false})},
     fileId: {type: String, unique: true, sparse: true},
     thumbnailFileId: {type: String},
     uploadedBy: {type: Schema.Types.ObjectId, ref: "User"},
@@ -48,6 +51,7 @@ const videoSchema = new Schema<InterFVideo>({
 
 videoSchema.index({ createdAt: -1, _id: -1 });
 videoSchema.index({ "source.id": 1 }, { unique: true, sparse: true });
+videoSchema.index({placement:1,"source.provider":1});
 
 const Video = models?.Video || model<InterFVideo>("Video", videoSchema)
 

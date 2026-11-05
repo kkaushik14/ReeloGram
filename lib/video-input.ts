@@ -44,7 +44,7 @@ export function parseFeedQuery(params: URLSearchParams) {
     const q = (params.get("q") ?? "").trim().toLowerCase();
     const mine = params.get("mine") ?? "false";
     const source = params.get("source") ?? "all";
-    if (!["newest", "oldest"].includes(sort) || !["any", "week", "month", "year"].includes(period) || q.length > 160 || !["true", "false"].includes(mine) || !["all", "pexels", "community"].includes(source)) return null;
+    if (!["newest", "oldest"].includes(sort) || !["any", "week", "month", "year"].includes(period) || q.length > 160 || !["true", "false"].includes(mine) || !["all", "pexels", "pixabay", "coverr", "mixkit", "community"].includes(source)) return null;
     const context = JSON.stringify([q, sort, period, mine, source]);
     const rawCursor = params.get("cursor");
     let cursor: { id: string; createdAt: Date } | undefined;

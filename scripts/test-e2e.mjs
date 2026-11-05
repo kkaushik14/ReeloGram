@@ -208,13 +208,21 @@ try {
         console.log("Video persistence, author attribution, duplicate rejection, media validation and public feed pagination passed.");
         const sourceDb = await mongoose.createConnection(databaseUri).asPromise();
         try {
-            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$set:{source:{provider:"Pexels",id:`e2e-${runId}`,creator:`Credit ${runId}`,url:"https://www.pexels.com/videos/",license:"https://www.pexels.com/license/"}}});
-            const pexels = await (await request(`/api/videos?q=${runId}&source=pexels`, {anonymous:true})).json();
-            assert.equal(pexels.total,1); assert.equal(pexels.videos[0].source.creator,`Credit ${runId}`);
+            for (const provider of ["Pexels","Pixabay","Coverr","Mixkit"]) {
+                await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$set:{source:{provider,id:`e2e-${runId}`,creator:`Credit ${runId}`,url:"https://www.pexels.com/videos/",license:"https://www.pexels.com/license/"}}});
+                const filtered = await (await request(`/api/videos?q=${runId}&source=${provider.toLowerCase()}`, {anonymous:true})).json();
+                assert.equal(filtered.total,1);assert.equal(filtered.videos[0].source.provider,provider);assert.equal(filtered.videos[0].source.creator,`Credit ${runId}`);
+            }
+            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$set:{placement:"hero"}});
+            const hiddenPreview = await (await request(`/api/videos?q=${runId}&source=mixkit`, {anonymous:true})).json();
+            assert.equal(hiddenPreview.total,0,"Banner clips must not appear in the video feed");
+            const showcase = await (await request("/api/showcase",{anonymous:true})).json();
+            assert.ok(showcase.videos.some(video=>video.id===savedVideos[0].id));
+            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$unset:{placement:""}});
             const community = await (await request(`/api/videos?q=${runId}&source=community`, {anonymous:true})).json();
             assert.equal(community.total,1); assert.equal(community.videos[0].id,savedVideos[1].id);
         } finally {
-            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$unset:{source:""}});
+            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$unset:{source:"",placement:""}});
             await sourceDb.close();
         }
 

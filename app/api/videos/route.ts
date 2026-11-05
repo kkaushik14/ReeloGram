@@ -21,10 +21,11 @@ export async function GET(req: Request) {
         await connectToDatabase();
         const direction = query.sort === "oldest" ? 1 : -1;
         const comparison = direction === 1 ? "$gt" : "$lt";
-        const conditions: FilterQuery<InterFVideo>[] = [{ deletionPending: { $ne: true } }];
+        const conditions: FilterQuery<InterFVideo>[] = [{ deletionPending: { $ne: true } },{placement:{$ne:"hero"}}];
         if (mine) conditions.push({ uploadedBy: session!.user.id });
-        if (query.source === "pexels") conditions.push({ "source.provider": "Pexels" });
-        if (query.source === "community") conditions.push({ "source.provider": { $ne: "Pexels" } });
+        const providers: Record<string,string> = {pexels:"Pexels",pixabay:"Pixabay",coverr:"Coverr",mixkit:"Mixkit"};
+        if (providers[query.source]) conditions.push({ "source.provider": providers[query.source] });
+        if (query.source === "community") conditions.push({ source: { $exists: false } });
         if (query.q) {
             const escaped = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
             conditions.push({ $or: [{ title: { $regex: escaped, $options: "i" } }, { description: { $regex: escaped, $options: "i" } }, { "source.creator": { $regex: escaped, $options: "i" } }] });
