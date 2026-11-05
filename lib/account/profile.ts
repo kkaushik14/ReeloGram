@@ -4,4 +4,5 @@ export type AccountProfile = {
   email: string;
   dateOfBirth: string | null;
   image: string | null;
+  editable: { name: boolean; dateOfBirth: boolean };
 };

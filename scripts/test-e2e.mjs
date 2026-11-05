@@ -316,7 +316,34 @@ try {
   const profile=await privateProfile.json();
   assert.equal(profile.name,"Video Creator");assert.equal(profile.email,email);assert.equal(profile.dateOfBirth,"1998-01-23");
   assert.ok(!("password" in profile));assert.ok(!("imageFileId" in profile));
-  await request("/api/account",{method:"PATCH",data:{name:"Changed",dateOfBirth:"2000-01-01",email:otherEmail},expected:405});
+  assert.deepEqual(profile.editable,{name:false,dateOfBirth:false});
+  await request("/api/account",{method:"PATCH",data:{name:"Changed",dateOfBirth:"2000-01-01",email:otherEmail},expected:400});
+  await request("/api/account",{method:"PATCH",data:{name:"Changed"},expected:409});
+  for(const data of [{}, {name:{$ne:null}}, {dateOfBirth:"2026-02-31"}, {dateOfBirth:"2999-01-01"}])
+    await request("/api/account",{method:"PATCH",data,expected:400});
+  const legacyDb=await mongoose.createConnection(databaseUri).asPromise();
+  try {
+    // Simulate a pre-registration-profile account in the isolated test database.
+    await legacyDb.collection("users").updateOne({email},{$unset:{name:1,dateOfBirth:1}});
+    const missing=await(await request("/api/account")).json();
+    assert.equal(missing.name,"");assert.equal(missing.dateOfBirth,null);
+    assert.deepEqual(missing.editable,{name:true,dateOfBirth:true});
+    const submissions=await Promise.all([1,2].map(()=>fetch(base+"/api/account",{method:"PATCH",headers:{Cookie:[...cookies].map(([k,v])=>k+"="+v).join("; "),"Content-Type":"application/json"},body:JSON.stringify({name:"Video Creator",dateOfBirth:"1998-01-23"})})));
+    assert.deepEqual(submissions.map(r=>r.status).sort(),[200,409]);checks+=2;
+    const completed=await(await request("/api/account")).json();
+    assert.equal(completed.name,"Video Creator");assert.equal(completed.dateOfBirth,"1998-01-23");
+    assert.deepEqual(completed.editable,{name:false,dateOfBirth:false});
+    await request("/api/account",{method:"PATCH",data:{dateOfBirth:"2000-01-01"},expected:409});
+    await legacyDb.collection("users").updateOne({email},{$unset:{dateOfBirth:1}});
+    assert.deepEqual((await(await request("/api/account")).json()).editable,{name:false,dateOfBirth:true});
+    await request("/api/account",{method:"PATCH",data:{name:"Overwrite",dateOfBirth:"1998-01-23"},expected:409});
+    assert.equal((await(await request("/api/account")).json()).dateOfBirth,null,"Conflicting completion must not partially write");
+    await request("/api/account",{method:"PATCH",data:{dateOfBirth:"1998-01-23"}});
+    const forged=await fetch(base+"/api/account",{method:"PATCH",headers:{Cookie:[...cookies].map(([k,v])=>k+"="+v).join("; "),"Content-Type":"application/json",Origin:"https://other.invalid"},body:JSON.stringify({name:"Cross origin"})});
+    assert.equal(forged.status,403);checks++;
+  } finally {await legacyDb.close();}
+  assert.equal((await(await request("/api/auth/session")).json()).user.name,"Video Creator");
+  console.log("Missing profile details can be completed once; concurrent writes, replay, partial conflicts and foreign origins are blocked.");
   assert.equal((await(await request("/api/account?userId=000000000000000000000000")).json()).email,email);
   await request("/api/account/avatar",{data:{image:"https://untrusted.invalid/avatar.svg"},expected:415});
   const invalidPhoto=new FormData();invalidPhoto.set("file",new Blob(["not a real image"],{type:"image/png"}),"photo.png");

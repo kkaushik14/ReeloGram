@@ -34,6 +34,12 @@ export function passwordError(value: unknown) {
 export function parseProfile(value: unknown, now = new Date()) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const { name, dateOfBirth } = value as Record<string, unknown>;
+  const parsedName = parseName(name);
+  const parsedDate = parseDateOfBirth(dateOfBirth, now);
+  if (!parsedName || !parsedDate) return null;
+  return { name: parsedName, dateOfBirth: parsedDate };
+}
+export function parseName(name: unknown) {
   if (
     typeof name !== "string" ||
     !name.trim() ||
@@ -41,6 +47,9 @@ export function parseProfile(value: unknown, now = new Date()) {
     /[\x00-\x1f\x7f]/.test(name)
   )
     return null;
+  return name.trim().replace(/\s+/g, " ");
+}
+export function parseDateOfBirth(dateOfBirth: unknown, now = new Date()) {
   if (
     typeof dateOfBirth !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
@@ -55,7 +64,7 @@ export function parseProfile(value: unknown, now = new Date()) {
     now.getUTCFullYear() - date.getUTCFullYear() > 120
   )
     return null;
-  return { name: name.trim().replace(/\s+/g, " "), dateOfBirth: date };
+  return date;
 }
 export const RESET_TOKEN_TTL_MS = 20 * 60 * 1000;
 export const validResetToken = (value: unknown): value is string =>

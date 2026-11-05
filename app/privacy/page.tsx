@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           there is no profile picture, your initials are displayed. You control
           your own videos through Your videos.
         </p>
-        <p>You can set or remove your profile photo from your protected Profile page. Uploaded profile photos are checked and resized, and embedded image metadata is removed before storage. Your name, email and date of birth are read-only in the profile form.</p>
+        <p>You can set or remove your profile photo from your protected Profile page. Uploaded profile photos are checked and resized, and embedded image metadata is removed before storage. If your name or date of birth is missing, you can add it once in Profile. Saved details and your sign-in email are read-only.</p>
       </section>
       <section>
         <h2>Storage and delivery</h2>

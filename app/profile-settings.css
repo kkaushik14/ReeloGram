@@ -156,6 +156,17 @@
 .account-fields input:focus {
   border-color: var(--color-border-strong);
 }
+.account-fields input:not([readonly]) {
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: text;
+}
+.account-fields input:not([readonly]):focus {
+  border-color: var(--color-accent);
+}
+.profile-details-save {
+  margin-top: 24px;
+}
 .appearance-options {
   display: grid;
   grid-template-columns: 1fr 1fr;

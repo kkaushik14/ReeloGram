@@ -23,6 +23,7 @@ export const REQUEST_LIMITS = {
   publish: [12, 60, 3600],
   mutation: [80, 240, 3600],
   profileRead: [90, 300, 300],
+  profileWrite: [20, 100, 600],
   avatar: [10, 40, 600],
 } as const;
 

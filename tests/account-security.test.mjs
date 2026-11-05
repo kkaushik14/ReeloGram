@@ -5,6 +5,34 @@ import { normalizeAvatar, readAvatar } from "../lib/account/avatar.ts";
 import { clientAddress } from "../lib/security/client-address.ts";
 import { parsePreferences } from "../lib/preferences.ts";
 import { selectVideoCap } from "../lib/video-playback.ts";
+import { parseMissingDetails } from "../lib/account/details.ts";
+
+test("profile completion accepts only valid name and birthday fields", () => {
+  assert.deepEqual(parseMissingDetails({ name: "  Kumar   Kaushik " }), {
+    name: "Kumar Kaushik",
+  });
+  assert.equal(
+    parseMissingDetails({
+      dateOfBirth: "1998-01-23",
+    }).dateOfBirth.toISOString(),
+    "1998-01-23T00:00:00.000Z",
+  );
+  for (const body of [
+    {},
+    { email: "other@example.invalid" },
+    { userId: "other", name: "Name" },
+    { name: { $ne: null } },
+    { name: " " },
+    { name: "x".repeat(81) },
+    { dateOfBirth: "2026-02-31" },
+    { dateOfBirth: "2999-01-01" },
+    { dateOfBirth: { $ne: null } },
+  ])
+    assert.throws(
+      () => parseMissingDetails(body),
+      (error) => error.status === 400,
+    );
+});
 
 test("profile images are decoded, bounded and stripped of private metadata", async () => {
   const original = await sharp({

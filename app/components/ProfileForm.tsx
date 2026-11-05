@@ -19,6 +19,9 @@ export default function ProfileForm() {
     [preview, setPreview] = useState("");
   const [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const [details, setDetails] = useState({ name: "", dateOfBirth: "" });
+  const incomplete =
+    !!profile && (profile.editable.name || profile.editable.dateOfBirth);
   const input = useRef<HTMLInputElement>(null);
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -106,6 +109,44 @@ export default function ProfileForm() {
       setBusy(false);
     }
   }
+  async function saveDetails(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile || busy || !incomplete) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const body = {
+        ...(profile.editable.name ? { name: details.name } : {}),
+        ...(profile.editable.dateOfBirth
+          ? { dateOfBirth: details.dateOfBirth }
+          : {}),
+      };
+      const response = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (response.status === 401) {
+        router.replace("/login?callbackUrl=/profile");
+        return;
+      }
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 409) await load();
+        throw Error(data.error || "Your details couldn’t be saved.");
+      }
+      setProfile(data.profile);
+      setDetails({ name: "", dateOfBirth: "" });
+      setNotice(data.message);
+      await update().catch(() => null);
+      router.refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <div className="content account-content">
       <div className="page-heading">
@@ -159,7 +200,8 @@ export default function ProfileForm() {
                   <UploaderBadge
                     uploader={{
                       id: session?.user.id || "",
-                      name: profile.name,
+                      name:
+                        profile.name || session?.user.name || "Your account",
                       image: profile.image || undefined,
                     }}
                   />
@@ -219,40 +261,84 @@ export default function ProfileForm() {
                 <div>
                   <h2 id="account-details-title">Account details</h2>
                   <p>
-                    These details are read-only. Your email and date of birth
-                    stay private.
+                    {incomplete
+                      ? "Add your missing details. Once saved, they become read-only. "
+                      : "These details are read-only. "}
+                    Your email and date of birth stay private.
                   </p>
                 </div>
               </div>
-              <div className="account-fields">
-                <label>
-                  Name
-                  <input
-                    value={profile.name}
-                    readOnly
-                    aria-readonly="true"
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    value={profile.email}
-                    readOnly
-                    aria-readonly="true"
-                    autoComplete="off"
-                  />
-                </label>
-                <label>
-                  Date of birth
-                  <input
-                    value={profile.dateOfBirth || "Not provided"}
-                    readOnly
-                    aria-readonly="true"
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
+              <form onSubmit={saveDetails}>
+                <div className="account-fields">
+                  <label>
+                    Name
+                    <input
+                      value={
+                        profile.editable.name ? details.name : profile.name
+                      }
+                      readOnly={!profile.editable.name}
+                      aria-readonly={!profile.editable.name}
+                      disabled={busy && profile.editable.name}
+                      required={profile.editable.name}
+                      maxLength={80}
+                      onChange={(event) =>
+                        setDetails((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      autoComplete={profile.editable.name ? "name" : "off"}
+                    />
+                  </label>
+                  <label>
+                    Email
+                    <input
+                      value={profile.email}
+                      readOnly
+                      aria-readonly="true"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label>
+                    Date of birth
+                    <input
+                      type={profile.editable.dateOfBirth ? "date" : "text"}
+                      value={
+                        profile.editable.dateOfBirth
+                          ? details.dateOfBirth
+                          : profile.dateOfBirth || "Not provided"
+                      }
+                      readOnly={!profile.editable.dateOfBirth}
+                      aria-readonly={!profile.editable.dateOfBirth}
+                      disabled={busy && profile.editable.dateOfBirth}
+                      required={profile.editable.dateOfBirth}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(event) =>
+                        setDetails((current) => ({
+                          ...current,
+                          dateOfBirth: event.target.value,
+                        }))
+                      }
+                      onInput={(event) => {
+                        const dateOfBirth = event.currentTarget.value;
+                        setDetails((current) => ({ ...current, dateOfBirth }));
+                      }}
+                      autoComplete={
+                        profile.editable.dateOfBirth ? "bday" : "off"
+                      }
+                    />
+                  </label>
+                </div>
+                {incomplete && (
+                  <button
+                    className="button primary profile-details-save"
+                    type="submit"
+                    disabled={busy}
+                  >
+                    {busy ? "Saving…" : "Save details"}
+                  </button>
+                )}
+              </form>
             </section>
           </>
         )
