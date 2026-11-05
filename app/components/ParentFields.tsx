@@ -4,18 +4,30 @@ export default function ParentFields({
   accepted,
   onEmail,
   onAccepted,
+  onEditDateOfBirth,
   disabled = false,
 }: {
   email: string;
   accepted: boolean;
   onEmail: (value: string) => void;
   onAccepted: (value: boolean) => void;
+  onEditDateOfBirth?: () => void;
   disabled?: boolean;
 }) {
   return (
     <fieldset className="parent-fields">
       <legend>Parent or guardian</legend>
-      <p>A parent or guardian needs to manage accounts for users under 13.</p>
+      <p>A parent or guardian needs to confirm and manage this account.</p>
+      {onEditDateOfBirth && (
+        <button
+          type="button"
+          className="text-button parent-birthday-edit"
+          disabled={disabled}
+          onClick={onEditDateOfBirth}
+        >
+          Change date of birth
+        </button>
+      )}
       <label>
         Parent’s email
         <input

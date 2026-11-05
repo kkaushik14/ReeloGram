@@ -1458,6 +1458,51 @@ try {
     });
     assert.equal(pending.canPublish, false);
     assert.ok(!JSON.stringify(pending).includes(parentToken));
+    const correction = {
+      previousDateOfBirth: child.dateOfBirth,
+      dateOfBirth: "2017-04-12",
+    };
+    await request("/api/account/date-of-birth", {
+      method: "PATCH",
+      anonymous: true,
+      data: correction,
+      expected: 401,
+    });
+    for (const dateOfBirth of ["not-a-date", "2999-01-01", { $ne: null }])
+      await request("/api/account/date-of-birth", {
+        method: "PATCH",
+        data: { ...correction, dateOfBirth },
+        expected: 400,
+      });
+    await request("/api/account/date-of-birth", {
+      method: "PATCH",
+      data: { ...correction, name: "Overwrite" },
+      expected: 400,
+    });
+    const foreignCorrection = await fetch(base + "/api/account/date-of-birth", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://unrelated.example",
+        Cookie: [...cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+      },
+      body: JSON.stringify(correction),
+    });
+    assert.equal(foreignCorrection.status, 403);
+    checks++;
+    await request("/api/account/date-of-birth", {
+      method: "PATCH",
+      data: correction,
+    });
+    await request("/api/account/date-of-birth", {
+      method: "PATCH",
+      data: correction,
+      expected: 409,
+    });
+    const corrected = await (await request("/api/account")).json();
+    assert.equal(corrected.dateOfBirth, "2017-04-12");
+    assert.deepEqual(corrected.parent, pending.parent);
+    assert.equal(corrected.canPublish, false);
     await request("/api/imagekit-auth", { expected: 403 });
     await request("/api/videos", {
       data: { title: "Blocked until parent confirms" },
@@ -1501,6 +1546,11 @@ try {
       "An unapproved parent must never receive a reset link",
     );
     await confirmEmailFor(childEmail);
+    await request("/api/account/date-of-birth", {
+      method: "PATCH",
+      data: { previousDateOfBirth: "2017-04-12", dateOfBirth: "1998-04-12" },
+      expected: 409,
+    });
     assert.equal(
       (await (await request("/api/account")).json()).parent.confirmed,
       true,
@@ -1550,6 +1600,87 @@ try {
       assert.ok(record.parent.verifiedAt);
       assert.ok(!record.emailConfirmation);
       assert.ok(record.emailVerifiedAt);
+      // A separate pending fixture exercises competing corrections and revokes
+      // outstanding approval links when parent management no longer applies.
+      const { createConfirmation } = await import(
+        "../lib/account/confirmation.ts"
+      );
+      const pendingParent = createConfirmation("parent"),
+        pendingOwner = createConfirmation("email");
+      const correctionEmail = `correction-${runId}@example.invalid`;
+      const fixture = {
+        _id: new mongoose.Types.ObjectId(),
+        email: correctionEmail,
+        password: record.password,
+        name: "Correction Check",
+        dateOfBirth: new Date("2018-04-12"),
+        parent: {
+          email: parentEmail,
+          requestedAt: new Date(),
+          confirmation: pendingParent.stored,
+        },
+        emailConfirmation: { ...pendingOwner.stored, parentEmail },
+      };
+      await db.collection("users").insertOne(fixture);
+      await signIn({ email: correctionEmail, password });
+      const correctionHeaders = {
+        "Content-Type": "application/json",
+        Cookie: [...cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+      };
+      const competing = await Promise.all(
+        ["1998-04-12", "1999-04-12"].map((dateOfBirth) =>
+          fetch(base + "/api/account/date-of-birth", {
+            method: "PATCH",
+            headers: correctionHeaders,
+            body: JSON.stringify({
+              dateOfBirth,
+              previousDateOfBirth: "2018-04-12",
+            }),
+          }),
+        ),
+      );
+      assert.deepEqual(
+        competing.map((response) => response.status).sort(),
+        [200, 409],
+      );
+      checks += 2;
+      const completedCorrection = await (await request("/api/account")).json();
+      assert.equal(completedCorrection.parent.required, false);
+      assert.equal(completedCorrection.emailVerified, false);
+      assert.equal(
+        completedCorrection.canPublish,
+        false,
+        "Correcting a birthday must not verify an email",
+      );
+      const savedCorrection = await db
+        .collection("users")
+        .findOne({ _id: fixture._id });
+      assert.ok(!savedCorrection.parent);
+      assert.ok(!savedCorrection.emailConfirmation);
+      for (const [kind, token] of [
+        ["parent", pendingParent.token],
+        ["email", pendingOwner.token],
+      ])
+        await request("/api/auth/confirm", {
+          anonymous: true,
+          data: { kind, token, accepted: true },
+          expected: 400,
+        });
+      await request("/api/account/date-of-birth", {
+        method: "PATCH",
+        data: {
+          previousDateOfBirth: completedCorrection.dateOfBirth,
+          dateOfBirth: "2018-04-12",
+        },
+        expected: 409,
+      });
+      await request("/api/account/verification", {
+        data: { kind: "parent", parentEmail, parentManaged: true },
+        expected: 400,
+      });
+      console.log(
+        "Pending date-of-birth corrections, stale tabs, approval locks, revoked links and input protections passed.",
+      );
     } finally {
       await db.close();
     }

@@ -37,6 +37,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
+  const birthdayInput = useRef<HTMLInputElement>(null);
   const first = useRef(true);
   const [today, setToday] = useState("");
   useEffect(() => {
@@ -247,6 +248,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
               <label>
                 Date of birth
                 <input
+                  ref={birthdayInput}
                   name="dateOfBirth"
                   aria-label="Date of birth"
                   aria-describedby="birthday-help"
@@ -269,6 +271,10 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                   accepted={parentManaged}
                   onEmail={setParentEmail}
                   onAccepted={setParentManaged}
+                  onEditDateOfBirth={() => {
+                    setError("");
+                    birthdayInput.current?.focus();
+                  }}
                   disabled={pending}
                 />
               )}

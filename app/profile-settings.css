@@ -431,6 +431,22 @@
   margin: 0;
   font-size: 15px;
 }
+.parent-birthday-edit {
+  align-self: flex-start;
+  text-align: left;
+}
+.birthday-correction {
+  margin-top: 20px;
+}
+.birthday-correction form {
+  margin-top: 16px;
+}
+.birthday-correction-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
 .parent-fields label {
   display: flex;
   flex-direction: column;

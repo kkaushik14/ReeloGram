@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       const updated = await User.updateOne(
         {
           _id: user._id,
+          dateOfBirth: user.dateOfBirth ?? null,
           ...(parentEmail
             ? { "parent.email": parentEmail, "parent.ownerApprovedAt": null }
             : { emailVerifiedAt: null }),
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
       const updated = await User.updateOne(
         {
           _id: user._id,
+          dateOfBirth: user.dateOfBirth ?? null,
           $or: [
             { "parent.verifiedAt": null },
             { "parent.ownerApprovedAt": null },

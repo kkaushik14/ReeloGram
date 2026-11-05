@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { MailCheck, ShieldCheck } from "lucide-react";
 import type { AccountProfile } from "@/lib/account/profile";
 import ParentFields from "./ParentFields";
+import DateOfBirthCorrection from "./DateOfBirthCorrection";
 import { useFlash } from "./FlashNotification";
 export default function AccountVerification({
   profile,
@@ -138,6 +139,14 @@ export default function AccountVerification({
           Refresh confirmation status
         </button>
       )}
+      {profile.parent.required &&
+        !profile.parent.confirmed &&
+        profile.dateOfBirth && (
+          <DateOfBirthCorrection
+            value={profile.dateOfBirth}
+            refresh={refresh}
+          />
+        )}
     </section>
   );
 }
