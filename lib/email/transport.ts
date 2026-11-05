@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { smtpConfigured, sendSmtp } from "./smtp.ts";
+import { sendWithBrevoFallback } from "./brevo-delivery.ts";
 export type EmailMessage = {
   to: string;
   subject: string;
@@ -7,8 +8,12 @@ export type EmailMessage = {
 };
 export class EmailConfigurationError extends Error {}
 export function appOrigin() {
-  const value = process.env.REELOGRAM_APP_URL || process.env.REELOGRAM_NEXTAUTH_URL;
-  if (!value) throw new EmailConfigurationError("Set REELOGRAM_APP_URL or REELOGRAM_NEXTAUTH_URL");
+  const value =
+    process.env.REELOGRAM_APP_URL || process.env.REELOGRAM_NEXTAUTH_URL;
+  if (!value)
+    throw new EmailConfigurationError(
+      "Set REELOGRAM_APP_URL or REELOGRAM_NEXTAUTH_URL",
+    );
   const url = new URL(value);
   if (
     url.protocol !== "https:" &&
@@ -21,45 +26,35 @@ export function appOrigin() {
   return url.origin;
 }
 export function emailConfigured() {
-  return (
-    !!process.env.REELOGRAM_EMAIL_FROM &&
-    (process.env.REELOGRAM_EMAIL_PROVIDER === "smtp"
-      ? !!process.env.REELOGRAM_SMTP_HOST &&
-        !!process.env.REELOGRAM_SMTP_USER &&
-        !!process.env.REELOGRAM_SMTP_PASSWORD
-      : !!process.env.REELOGRAM_RESEND_API_KEY)
-  );
+  if (!process.env.REELOGRAM_EMAIL_FROM) return false;
+  switch (process.env.REELOGRAM_EMAIL_PROVIDER || "resend") {
+    case "smtp":
+      return smtpConfigured();
+    case "brevo":
+      return !!process.env.REELOGRAM_BREVO_API_KEY && smtpConfigured();
+    case "resend":
+      return !!process.env.REELOGRAM_RESEND_API_KEY;
+    default:
+      return false;
+  }
 }
 export async function sendEmail(message: EmailMessage, idempotencyKey: string) {
   if (!emailConfigured())
     throw new EmailConfigurationError("Email sender is not configured");
-  if (/[\r\n]/.test(message.to + message.subject + process.env.REELOGRAM_EMAIL_FROM))
+  if (
+    /[\r\n]/.test(
+      message.to +
+        message.subject +
+        process.env.REELOGRAM_EMAIL_FROM +
+        (process.env.REELOGRAM_EMAIL_REPLY_TO || "") +
+        (process.env.REELOGRAM_BREVO_EMAIL_FROM || ""),
+    )
+  )
     throw Error("Invalid email headers");
-  if (process.env.REELOGRAM_EMAIL_PROVIDER === "smtp") {
-    const { default: nodemailer } = await import("nodemailer");
-    const port = Number(process.env.REELOGRAM_SMTP_PORT || 587);
-    const transporter = nodemailer.createTransport({
-      host: process.env.REELOGRAM_SMTP_HOST,
-      port,
-      secure: process.env.REELOGRAM_SMTP_SECURE === "1" || port === 465,
-      requireTLS: !(process.env.REELOGRAM_SMTP_SECURE === "1" || port === 465),
-      auth: { user: process.env.REELOGRAM_SMTP_USER, pass: process.env.REELOGRAM_SMTP_PASSWORD },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-    try {
-      await transporter.sendMail({
-        ...message,
-        from: process.env.REELOGRAM_EMAIL_FROM,
-        replyTo: process.env.REELOGRAM_EMAIL_REPLY_TO,
-        messageId: `<${createHash("sha256").update(idempotencyKey).digest("hex")}@${new URL(appOrigin()).hostname}>`,
-      });
-    } finally {
-      transporter.close();
-    }
-    return;
-  }
+  if (process.env.REELOGRAM_EMAIL_PROVIDER === "smtp")
+    return sendSmtp(message, idempotencyKey);
+  if (process.env.REELOGRAM_EMAIL_PROVIDER === "brevo")
+    return sendWithBrevoFallback(message, idempotencyKey);
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {

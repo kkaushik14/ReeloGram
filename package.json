@@ -20,6 +20,7 @@
     "videos:archive-imports": "node scripts/archive-feed-imports.mjs",
     "email:retry": "node --experimental-strip-types scripts/retry-emails.mjs",
     "test:email": "node --experimental-strip-types scripts/test-email-service.mjs",
+    "test:brevo": "node --experimental-strip-types scripts/test-brevo.mjs",
     "media:retry": "node --experimental-strip-types scripts/retry-avatar-cleanup.mjs"
   },
   "dependencies": {
