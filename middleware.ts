@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    if (pathname === "/" || pathname === "/reels" || pathname === "/icon.svg" || /^\/brands\/(pexels|pixabay)\.svg$/.test(pathname) || /^\/brands\/(coverr|mixkit)\.png$/.test(pathname) || /^\/(file|globe|next|vercel|window)\.svg$/.test(pathname) ||
+    if (pathname === "/" || pathname === "/reels" || pathname === "/icon.svg" || pathname === "/email-logo.png" || /^\/brands\/(pexels|pixabay)\.svg$/.test(pathname) || /^\/brands\/(coverr|mixkit)\.png$/.test(pathname) || /^\/(file|globe|next|vercel|window)\.svg$/.test(pathname) ||
         ["/login","/register","/forgot-password","/reset-password","/terms","/privacy","/help"].includes(pathname) ||
         pathname === "/api/auth" || pathname.startsWith("/api/auth/") ||
         (req.method === "GET" && (pathname === "/api/showcase" || pathname === "/api/videos" || pathname.startsWith("/api/videos/")))) {

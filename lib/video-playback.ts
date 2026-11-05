@@ -9,6 +9,7 @@ export const VIDEO_PLAYBACK = {
   streamStartupMs: 8000,
   maxBufferSeconds: 20,
   saverBufferSeconds: 8,
+  stableStallMs: 8000,
 } as const;
 
 export type VideoRole = keyof typeof VIDEO_PLAYBACK.roleCaps;
@@ -21,6 +22,11 @@ export type PlaybackEnvironment = {
   dpr?: number;
 };
 export type VideoDimensions = { width?: number; height?: number };
+
+/** Short looping showcases should not repeatedly change sharpness as HLS estimates vary. */
+export function usesStableVideoQuality(role: VideoRole) {
+  return role === "hero" || role === "preview";
+}
 
 export function selectVideoCap(
   environment: PlaybackEnvironment,
@@ -53,7 +59,7 @@ export function selectVideoCap(
     else if (downlink < 25) cap = Math.min(cap, 1440);
   }
   const fittedHeight =
-    role === "hero" && renderedWidth && source?.width && source.height
+    usesStableVideoQuality(role) && renderedWidth && source?.width && source.height
       ? Math.max(renderedHeight, (renderedWidth * source.height) / source.width)
       : renderedHeight;
   const needed = Math.max(
@@ -109,7 +115,7 @@ export function progressiveVideoUrl(
   const url = imageKitVideoBase(src, endpoint);
   if (!url) return src;
   const quality =
-    height <= 360 ? 45 : height <= 720 ? 65 : height <= 1080 ? 75 : 85;
+    height <= 360 ? 55 : height <= 720 ? 80 : 85;
   url.searchParams.set(
     "tr",
     `w-${Math.round((height * 16) / 9)},h-${height},c-at_max,q-${quality},f-mp4,ov-redirect_false`,
@@ -152,7 +158,7 @@ export function videoPreparationUrls(
   return [
     ...new Set(
       [
-        ...[240, 360, 720, 1080]
+        ...(usesStableVideoQuality(role) ? VIDEO_PLAYBACK.levels : [240, 360, 720, 1080])
           .filter((height) => height <= ceiling)
           .map((height) => progressiveVideoUrl(src, endpoint, height)),
         streamingVideoUrl(src, endpoint, role, source),

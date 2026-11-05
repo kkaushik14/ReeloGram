@@ -122,6 +122,24 @@ async function signIn(input, expected = 200) {
   return response;
 }
 
+async function assertAuthRedirect(path, destination = "/") {
+  const response = await fetch(base + path, {
+    headers: { Cookie: [...cookies].map(([name, value]) => `${name}=${value}`).join("; ") },
+    redirect: "manual",
+  });
+  if (response.status === 307) {
+    assert.equal(new URL(response.headers.get("location"), base).href, base + destination);
+  } else {
+    // Next.js may have started streaming the route skeleton before checking the session.
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    const refresh = html.match(/http-equiv="refresh" content="[01];url=([^"]*)"/);
+    assert.ok(refresh, `${path} must redirect an existing session`);
+    assert.equal(new URL(refresh[1].replace(/&amp;/g, "&"), base).href, base + destination);
+  }
+  checks++;
+}
+
 try {
   mail = await startEmailTestServer();
   await writeFile(
@@ -291,6 +309,12 @@ try {
   assert.equal(session.user.email, email);
   assert.equal(session.user.name, "Video Creator");
   assert.ok(session.user.id);
+  await request("/email-logo.png", { anonymous: true });
+  await assertAuthRedirect("/login");
+  await assertAuthRedirect("/register");
+  await assertAuthRedirect("/login?callbackUrl=%2Fmy-videos", "/my-videos");
+  await assertAuthRedirect("/login?callbackUrl=https%3A%2F%2Funtrusted.invalid%2F");
+  await assertAuthRedirect("/register?callbackUrl=%2F%256cogin");
   await waitEmail("Welcome to ReeloGram");
   assert.equal(
     (await (await request("/api/auth/identify", { data: { email } })).json())

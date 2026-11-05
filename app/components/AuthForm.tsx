@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { signIn } from "next-auth/react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { Aperture, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -8,10 +8,13 @@ import { parseProfile, passwordError } from "@/lib/auth/validation";
 import { completeSignIn } from "@/lib/auth/client";
 import { safeAuthDestination } from "@/lib/auth/navigation";
 import AuthShowcase from "./AuthShowcase";
+import { AuthSkeleton } from "./LoadingState";
 
 type Step = "email" | "login" | "profile" | "password";
 export default function AuthForm({ register = false }: { register?: boolean }) {
   const router = useRouter();
+  const { status } = useSession();
+  const redirecting = useRef(false);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -50,18 +53,23 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
           : register
             ? "Find your place here"
             : "Welcome to ReeloGram";
-  function finishSignIn() {
-    router.push(
+  const finishSignIn = useCallback(() => {
+    if (redirecting.current) return;
+    redirecting.current = true;
+    router.replace(
       safeAuthDestination(
         new URLSearchParams(location.search).get("callbackUrl"),
         location.origin,
       ),
     );
     router.refresh();
-  }
+  }, [router]);
+  useEffect(() => {
+    if (status === "authenticated") finishSignIn();
+  }, [status, finishSignIn]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || status !== "unauthenticated") return;
     const fields = new FormData(event.currentTarget);
     setError("");
     setPending(true);
@@ -147,6 +155,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
     setVisible(false);
     setStep(step === "password" ? "profile" : "email");
   }
+  if (status !== "unauthenticated") return <AuthSkeleton />;
   return (
     <div className="auth-scene">
       <section className="auth-card" aria-labelledby="auth-title">

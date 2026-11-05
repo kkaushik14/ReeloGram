@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { startEmailTestServer } from "./email-test-server.mjs";
+import { startEmailTestServer, emailBody } from "./email-test-server.mjs";
 // A child process loads the test CA before Node initializes TLS trust.
 if (!process.env.REELOGRAM_EMAIL_TEST_WORKER) {
   const mail = await startEmailTestServer();
@@ -35,6 +35,12 @@ if (!process.env.REELOGRAM_EMAIL_TEST_WORKER) {
     const [code] = await once(child, "exit");
     assert.equal(code, 0);
     assert.equal(mail.messages.length, 2);
+    for (const delivered of mail.messages) {
+      const body = emailBody(delivered.raw);
+      assert.match(body, /Content-Type: multipart\/alternative/);
+      assert.match(body, /email-logo\.png/);
+      assert.match(body, /Explore ReeloGram/);
+    }
     console.log(
       "PASS: SMTP queue deduplication, failures/retry, leases, payload cleanup and expiry.",
     );
@@ -49,12 +55,10 @@ if (!process.env.REELOGRAM_EMAIL_TEST_WORKER) {
   try {
     await mongoose.connect(process.env.REELOGRAM_MONGODB_URL);
     await EmailJob.init();
-    const message = {
-      to: "account@example.invalid",
-      subject: "Queue check",
-      html: "<p>A message</p>",
-      text: "A message",
-    };
+    const { accountCreatedEmail } = await import("../lib/email/templates.ts");
+    const message = accountCreatedEmail(
+      "account@example.invalid", "Queue Check", process.env.REELOGRAM_APP_URL,
+    );
     const ids = await Promise.all(
       [1, 2].map(() => queueEmail(message, "same-event")),
     );

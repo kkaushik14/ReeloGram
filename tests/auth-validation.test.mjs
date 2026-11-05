@@ -140,4 +140,9 @@ test("sign-in grants are unpredictable, short-lived and purpose-bound; redirects
     safeAuthDestination("/upload?from=welcome", "https://app.example"),
     "/upload?from=welcome",
   );
+  for (const callback of [
+    "//evil.example/path", "/login?callbackUrl=/login", "/%6cogin", "/%61pi/auth/signout",
+    "/%2f%2fevil.example", "/%5cevil.example", "/%00login", "/%invalid",
+  ]) assert.equal(safeAuthDestination(callback, "https://app.example"), "/");
+  assert.equal(safeAuthDestination("/my-videos", "https://app.example/"), "/my-videos");
 });

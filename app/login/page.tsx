@@ -1,5 +1,5 @@
-import AuthForm from "@/app/components/AuthForm";
+import AuthEntryPage, { type AuthEntrySearchParams } from "@/app/components/AuthEntryPage";
 
-export default function LoginPage() {
-    return <AuthForm />;
+export default function LoginPage({ searchParams }: { searchParams: AuthEntrySearchParams }) {
+    return <AuthEntryPage searchParams={searchParams} />;
 }

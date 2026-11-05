@@ -10,6 +10,7 @@ The application uses NextAuth credentials, MongoDB account records and a separat
 - `lib/auth-opt.ts`: password verification, session creation and session revocation.
 - `lib/email/transport.ts`: the provider-independent `sendEmail` interface and SMTP/Resend adapters.
 - `lib/email/templates.ts`: escaped HTML and plain-text account, password and video messages.
+- `lib/email/layout.ts`: responsive email layout with the app logo, inline styles, table-based spacing, a plain-text alternative and same-origin HTTPS actions. The PNG mark is public at `/email-logo.png` so inboxes can load it without a session.
 - `lib/email/outbox.ts`: deduplicated, leased delivery of account and posting notices.
 - `models/EmailJob.ts`: the durable email queue. Reset-link messages are sent directly and are never put in this collection.
 
@@ -45,6 +46,8 @@ Password-reset messages contain short-lived credentials, so they bypass the dura
 Both `/login` and `/register` begin with an email. `POST /api/auth/identify` returns the next step. Existing accounts enter a password; new users enter a name and date of birth, then create and confirm a password. No account is stored until the final valid submission. Duplicate creation races return a sign-in prompt. After registration, a 60-second, single-use sign-in grant is exchanged through NextAuth to create the normal protected session cookie. Only the digest is stored; grants never enter URLs or browser storage. Failed exchanges leave the successful account creation intact and offer ordinary sign-in.
 
 Date of birth remains private. It is not returned in sessions, public uploader records or video feeds. Legacy accounts without a date of birth still sign in. Their public name falls back to the existing email handle when a separate name is unavailable. Profile pictures are shown when available; otherwise the UI uses initials.
+
+Login and registration check the server session on each request. An already signed-in visitor goes to Home or a validated internal return path. The form also observes the shared NextAuth session, so sign-in in another tab redirects an open form when the session updates. A skeleton covers session loading. External callbacks, authentication/API paths, encoded redirect loops and malformed paths fall back to Home. Expired and revoked sessions still require sign-in. Cookies remain scoped to the current host; use the canonical production domain in every tab.
 
 The email-first routing intentionally reveals whether an email has an account, as required by the product flow. It is rate-limited. Password recovery itself uses the same response and asynchronous work schedule for known and unknown addresses.
 

@@ -14,6 +14,7 @@ import {
   progressiveVideoUrl,
   selectVideoCap,
   streamingVideoUrl,
+  usesStableVideoQuality,
   type PlaybackEnvironment,
   type VideoDimensions,
   type VideoRole,
@@ -235,6 +236,8 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       let stalled = 0;
       let disposedHls = false;
       let startupTimer: ReturnType<typeof setTimeout> | undefined;
+      let stallTimer: ReturnType<typeof setTimeout> | undefined;
+      const stableQuality = usesStableVideoQuality(context);
       capRef.current = selectVideoCap(
         environment(),
         context,
@@ -271,6 +274,8 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       const ready = () => {
         if (cancelled) return;
         clearTimeout(startupTimer);
+        clearTimeout(stallTimer);
+        stallTimer = undefined;
         transitioning.current = false;
         setLoading(false);
         play();
@@ -317,7 +322,9 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         while (!signal.aborted && Date.now() < deadline) {
           const target = Math.min(maximum, capRef.current);
           const fallback = Math.min(target, 360);
-          const candidates = [...new Set([target, fallback])];
+          // Keep the poster visible while a sharp rendition is prepared, rather than
+          // starting a blurry 360p copy and changing quality a moment later.
+          const candidates = stableQuality ? [target] : [...new Set([target, fallback])];
           const checks = await Promise.all(
             candidates.map((height) =>
               probe(progressiveVideoUrl(src!, endpoint, height), false, signal),
@@ -347,7 +354,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         if (!cancelled) fail();
       }
       const native = !!element.canPlayType("application/vnd.apple.mpegurl");
-      let manifest = streamingVideoUrl(
+      let manifest = stableQuality ? null : streamingVideoUrl(
         src,
         endpoint,
         context,
@@ -461,6 +468,16 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
       };
       sourceError.current = onError;
       const waiting = () => {
+        if (stableQuality) {
+          if (stallTimer || loadingProgressive || !lastHeight || !intent.current) return;
+          stallTimer = setTimeout(() => {
+            stallTimer = undefined;
+            if (cancelled || document.hidden || element.paused || element.readyState >= 3) return;
+            const lower = VIDEO_PLAYBACK.levels.filter(level => level < lastHeight).at(-1);
+            if (lower) void progressive(lower);
+          }, VIDEO_PLAYBACK.stableStallMs);
+          return;
+        }
         if (usingHls || !lastHeight || stalled++ < 1 || loadingProgressive)
           return;
         const lower = VIDEO_PLAYBACK.levels
@@ -525,6 +542,14 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         else await progressive();
       })();
       adaptiveCap.current = () => {
+        if (stableQuality) {
+          // Browser bandwidth estimates fluctuate. Honour explicit saving/slow-network
+          // changes immediately; an actual sustained stall handles other reductions.
+          const device = environment();
+          if ((device.saveData || ["slow-2g", "2g", "3g"].includes(device.effectiveType ?? "")) && lastHeight > capRef.current && !loadingProgressive)
+            void progressive(capRef.current);
+          return;
+        }
         if (native) {
           const next = streamingVideoUrl(
             src!,
@@ -563,6 +588,7 @@ const AdaptiveVideo = forwardRef<HTMLVideoElement, Props>(
         lifecycle.abort();
         clearInterval(background);
         clearTimeout(startupTimer);
+        clearTimeout(stallTimer);
         sourceError.current = () => {};
         adaptiveCap.current = () => {};
         resume.current = { src, time: element.currentTime };

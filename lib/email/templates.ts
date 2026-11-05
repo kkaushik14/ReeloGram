@@ -1,54 +1,58 @@
-import type { EmailMessage } from "./transport";
-export const escapeEmailText = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (char) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        char
-      ]!,
-  );
-function message(
-  to: string,
-  subject: string,
-  heading: string,
-  body: string,
-  link?: { url: string; label: string },
-): EmailMessage {
-  return {
-    to,
-    subject,
-    text: `${heading}\n\n${body}${link ? `\n\n${link.label}: ${link.url}` : ""}\n\nReeloGram`,
-    html: `<!doctype html><html><body style="margin:0;background:#f4f2f5;font-family:Arial,sans-serif;color:#29252e"><main style="max-width:520px;margin:32px auto;padding:32px;background:white;border-radius:20px"><p style="font-size:20px;font-weight:700">ReeloGram.</p><h1 style="font-size:26px">${escapeEmailText(heading)}</h1><p style="font-size:16px;line-height:1.7">${escapeEmailText(body)}</p>${link ? `<p style="margin:28px 0"><a style="display:inline-block;padding:14px 20px;background:#634b70;color:white;border-radius:10px;text-decoration:none;font-weight:bold" href="${escapeEmailText(link.url)}">${escapeEmailText(link.label)}</a></p><p style="font-size:14px;overflow-wrap:anywhere">Or open this link: ${escapeEmailText(link.url)}</p>` : ""}</main></body></html>`,
-  };
-}
+import { renderEmail } from "./layout.ts";
+import { appOrigin } from "./transport.ts";
+export { escapeEmailText } from "./layout.ts";
+
 export const passwordResetEmail = (to: string, url: string) =>
-  message(
+  renderEmail({
     to,
-    "Reset your ReeloGram password",
-    "Choose a new password",
-    "Use this link within 20 minutes. It works once. If you didn’t request a password reset, you can ignore this email.",
-    { url, label: "Set a new password" },
-  );
+    subject: "Reset your ReeloGram password",
+    origin: new URL(url).origin,
+    preview: "Your secure link to set a new password. Valid for 20 minutes.",
+    label: "Password reset",
+    heading: "Set a new password",
+    paragraphs: ["We received a request to reset your password. Choose a new one to get back to ReeloGram."],
+    action: { url, label: "Set a new password" },
+    note: {
+      heading: "This link works once, for 20 minutes.",
+      text: "If you didn’t request this, you can ignore this email. Your password will stay the same.",
+    },
+  });
+
 export const accountCreatedEmail = (to: string, name: string, origin: string) =>
-  message(
+  renderEmail({
     to,
-    "Welcome to ReeloGram",
-    `Welcome, ${name}.`,
-    "Your account is ready. Discover a new perspective or share a moment of your own.",
-    { url: origin + "/", label: "Open ReeloGram" },
-  );
+    subject: "Welcome to ReeloGram",
+    origin,
+    preview: "Your account is ready. Find your next favourite moment.",
+    label: "You’re in",
+    heading: `Welcome, ${name}.`,
+    paragraphs: ["Your ReeloGram account is ready. Discover a new perspective or share a moment of your own."],
+    action: { url: new URL("/", origin).href, label: "Explore ReeloGram" },
+    note: { heading: "Make yourself at home.", text: "Browse videos, settle into Reels, or upload something worth sharing." },
+  });
+
 export const videoPostedEmail = (to: string, title: string, url: string) =>
-  message(
+  renderEmail({
     to,
-    "Your video is live on ReeloGram",
-    "Your story is ready to watch.",
-    `“${title}” has been posted. You can edit its title and description or remove it from Your videos.`,
-    { url, label: "Watch your video" },
-  );
-export const passwordChangedEmail = (to: string) =>
-  message(
+    subject: "Your video is live on ReeloGram",
+    origin: new URL(url).origin,
+    preview: "Your upload is published and ready to watch.",
+    label: "Published",
+    heading: "Your video is live.",
+    paragraphs: [`“${title}” is now live on ReeloGram.`],
+    action: { url, label: "Watch your video" },
+    note: { heading: "You’re in control.", text: "You can edit the title and description or remove your upload at any time from Your videos." },
+  });
+
+export const passwordChangedEmail = (to: string, origin = appOrigin()) =>
+  renderEmail({
     to,
-    "Your ReeloGram password was changed",
-    "Your password has been updated.",
-    "Your previous sign-ins have been closed. Use your new password to sign in. If you didn’t make this change, reset your password immediately.",
-  );
+    subject: "Your ReeloGram password was changed",
+    origin,
+    preview: "Your password is updated and previous sessions have been closed.",
+    label: "Account security",
+    heading: "Your password is updated.",
+    paragraphs: ["Your new password is ready to use. Your previous sign-ins have been closed to keep your account safe."],
+    action: { url: new URL("/login", origin).href, label: "Open ReeloGram" },
+    note: { heading: "Wasn’t you?", text: "Go to ReeloGram and use Forgot password to secure your account straight away." },
+  });

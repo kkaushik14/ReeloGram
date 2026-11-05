@@ -12,6 +12,7 @@ import {
   Film,
 } from "lucide-react";
 import { validateUpload } from "@/lib/upload-validation";
+import { uploadToImageKit } from "@/lib/uploads/imagekit-upload";
 import { FormSkeleton } from "./LoadingState";
 import Headline from "./motion/Headline";
 export default function UploadForm() {
@@ -61,46 +62,9 @@ export default function UploadForm() {
   }
   async function upload(file: File, type: "video" | "image") {
     if (uploaded.current[type]) return uploaded.current[type]!;
-    const response = await fetch("/api/imagekit-auth", { cache: "no-store" });
-    if (!response.ok)
-      throw Error(
-        "We couldn’t start the upload. Please sign in and try again.",
-      );
-    const auth = await response.json();
-    const data = new FormData();
-    data.set("file", file);
-    data.set("fileName", file.name);
-    data.set("folder", type === "video" ? "/videos" : "/images");
-    data.set("publicKey", process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY || "");
-    for (const key of ["signature", "token", "expire"])
-      data.set(key, String(auth[key]));
-    const id = await new Promise<string>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "https://upload.imagekit.io/api/v1/files/upload");
-      xhr.timeout = 120000;
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable)
-          setProgress(Math.round((e.loaded / e.total) * 100));
-      };
-      xhr.onerror = xhr.ontimeout = () =>
-        reject(
-          Error(
-            "The upload was interrupted. Check your connection and try again.",
-          ),
-        );
-      xhr.onload = () => {
-        try {
-          const result = JSON.parse(xhr.responseText);
-          if (xhr.status >= 200 && xhr.status < 300 && result.fileId)
-            resolve(result.fileId);
-          else
-            reject(Error("This file couldn’t be uploaded. Please try again."));
-        } catch {
-          reject(Error("This file couldn’t be uploaded. Please try again."));
-        }
-      };
-      xhr.send(data);
-    });
+    const id = await uploadToImageKit(
+      file, type, process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY || "", setProgress,
+    );
     uploaded.current[type] = id;
     return id;
   }

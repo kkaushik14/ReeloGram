@@ -1,10 +1,14 @@
 export function safeAuthDestination(callback: string | null, origin: string) {
   try {
-    const url = new URL(callback || "/", origin);
+    const canonicalOrigin = new URL(origin).origin;
+    const url = new URL(callback || "/", canonicalOrigin);
+    const pathname = decodeURIComponent(url.pathname);
     if (
-      url.origin === origin &&
+      url.origin === canonicalOrigin &&
+      !pathname.startsWith("//") &&
+      !/[\\\u0000-\u001f\u007f]/.test(pathname) &&
       !/^\/(?:login|register|forgot-password|reset-password|api)(?:\/|$)/.test(
-        url.pathname,
+        pathname,
       )
     )
       return url.pathname + url.search;

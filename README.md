@@ -156,3 +156,9 @@ Set `REELOGRAM_NEXTAUTH_URL` to your actual **HTTPS production address**, such a
 The public deployment inputs are `REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY` and `REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT`. `next.config.ts` explicitly maps only these two public ImageKit settings to the browser's `NEXT_PUBLIC_REELOGRAM_*` names. Database, SMTP, authentication and ImageKit private credentials are never included in that mapping. Rebuild/redeploy after changing public values so the browser bundle receives them.
 
 Add the new names to the intended Vercel project/environment and redeploy. If a namespaced key already exists, edit its value rather than creating another entry with the same name and target. Old unprefixed keys can be removed after the renamed configuration is deployed successfully.
+
+## Upload reliability and showcase quality
+
+`lib/uploads/config.ts` holds the browser upload limits, and `lib/uploads/imagekit-upload.ts` implements direct signed ImageKit uploads. A transfer that keeps making progress can run for up to 30 minutes. No progress for 90 seconds, or no service response for two minutes after transferring the file, ends the attempt with a specific retry message. The form retains its selections and any successfully uploaded file IDs for a manual retry. An uncertain network failure is never automatically retried into duplicate uploads. Video bodies do not pass through Vercel's request-size limit.
+
+Hero and login/signup clips use a stable optimized MP4 rendition selected for the device, connection, source and displayed crop. They retain that sharpness across loops rather than switching HLS levels repeatedly. A sustained eight-second stall or explicit data-saving/slow-network setting can reduce quality. Reels and the main viewer continue to use adaptive HLS. Run `npm run videos:prepare -- --apply` to prepare the sharper showcase renditions before release.

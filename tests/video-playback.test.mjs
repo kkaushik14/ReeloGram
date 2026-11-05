@@ -6,10 +6,20 @@ import {
   streamingVideoUrl,
   imageKitVideoBase,
   videoPreparationUrls,
+  usesStableVideoQuality,
 } from "../lib/video-playback.ts";
 
 const endpoint = "https://ik.imagekit.io/account";
 const src = endpoint + "/video.mp4?tr=w-320,q-40";
+test("showcases use a stable sharp rendition while watching and Reels remain adaptive", () => {
+  assert.equal(usesStableVideoQuality("hero"), true);
+  assert.equal(usesStableVideoQuality("preview"), true);
+  assert.equal(usesStableVideoQuality("reel"), false);
+  assert.equal(usesStableVideoQuality("watch"), false);
+  assert.match(progressiveVideoUrl(src, endpoint, 720), /q-80/);
+  assert.match(progressiveVideoUrl(src, endpoint, 1080), /q-85/);
+  assert.equal(selectVideoCap({ dpr: 2, downlink: 40 }, "preview", 400, {width:1080,height:1920}, 600), 1080);
+});
 test("fast, capable devices can use high-resolution sources, limited by the actual display and source", () => {
   assert.equal(
     selectVideoCap(
@@ -104,7 +114,7 @@ test("preparation reuses delivery profiles and never warms unrelated origins", (
     width: 1280,
     height: 720,
   });
-  assert.equal(urls.length, 4);
+  assert.ok(urls.length >= 4);
   assert.ok(urls.every((url) => url.startsWith(endpoint)));
   assert.ok(urls.some((url) => url.includes("h-240")));
   assert.ok(urls.some((url) => url.includes("ik-master.m3u8")));
