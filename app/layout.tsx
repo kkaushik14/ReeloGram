@@ -1,6 +1,6 @@
 import "@/lib/auth/environment";
 import type { Metadata } from "next";
-import { SITE_ORIGIN, SITE_DESCRIPTION, jsonLd } from "@/lib/seo/config";
+import { siteOrigin, SITE_DESCRIPTION, jsonLd } from "@/lib/seo/config";
 import Script from "next/script";
 import "./globals.css";
 import "./motion.css";
@@ -16,7 +16,7 @@ import "./consent.css";
 import "./profile-settings.css";
 import "./flash.css";
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_ORIGIN),
+  metadataBase: new URL(siteOrigin()),
   title: {
     default: "ReeloGram — Watch and share videos",
     template: "%s — ReeloGram",
@@ -51,7 +51,7 @@ export default function RootLayout({
               "@context": "https://schema.org",
               "@type": "WebSite",
               name: "ReeloGram",
-              url: SITE_ORIGIN,
+              url: siteOrigin(),
             }),
           }}
         />

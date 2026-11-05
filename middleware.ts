@@ -1,7 +1,7 @@
 import "@/lib/auth/environment";
 import {
   PUBLIC_PAGES,
-  SITE_ORIGIN,
+  siteOrigin,
   validVideoId,
   videoPath,
 } from "@/lib/seo/config";
@@ -22,8 +22,9 @@ export async function middleware(req: NextRequest) {
     publicWatch ||
     seoFile;
   const preview =
+    process.env.NODE_ENV !== "production" ||
     process.env.VERCEL_ENV === "preview" ||
-    req.nextUrl.hostname !== new URL(SITE_ORIGIN).hostname;
+    req.nextUrl.hostname !== new URL(siteOrigin()).hostname;
   const finish = (response: NextResponse) => {
     if (!indexable || preview || req.nextUrl.search)
       response.headers.set("X-Robots-Tag", "noindex, nofollow");

@@ -216,7 +216,7 @@ Use `npm run test:brevo` for isolated MongoDB + TLS SMTP tests covering quota ex
 
 ## Search and sharing
 
-- Canonical public origin: `https://www.reelogram.in`, centralized in `lib/seo/config.ts`.
+- Canonical public origin comes from `REELOGRAM_APP_URL`, validated centrally in `lib/config/app-url.ts`. SEO, sitemaps, transactional email and NextAuth all use it. `REELOGRAM_NEXTAUTH_URL` is a legacy fallback only when the app URL is absent. Public environments require HTTPS; credentials, paths, queries and fragments are rejected. Changing domains requires configuration, not code edits.
 - `/robots.txt` is public and points to `/sitemap.xml`. The sitemap index includes `/sitemaps/pages.xml` and live video sitemaps, capped at 1,000 videos per file. Only public feed videos (including legacy records with no placement) are listed. Hero clips, archived videos, and deletion-pending records are excluded. Database outages return 503 with Retry-After instead of an empty success.
 - `/videos/:id` renders the public title, description, creator credit, ImageKit player source and VideoObject data on the server. New share links point here; old `/?video=:id` and `/reels?video=:id` links redirect permanently. Deleted/private/nonexistent records return a not-found response without revealing metadata. Neither sitemap nor watch pages persistently cache database records.
 - Public pages have unique titles, descriptions, canonicals, Open Graph and Twitter metadata. Search/filter variants are noindex with a clean canonical. Private/account pages inherit noindex and receive an X-Robots-Tag header, including their sign-in redirects. Authorization continues to protect their data; robots rules are not a security boundary. Local and preview hosts receive noindex headers.

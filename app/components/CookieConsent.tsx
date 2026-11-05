@@ -10,6 +10,7 @@ import {
   CONSENT_KEY,
   CONSENT_LIFETIME_MS,
   analyticsPage,
+  isAnalyticsPage,
   readCookieChoice,
   type CookieChoice,
 } from "@/lib/analytics";
@@ -95,7 +96,7 @@ export default function CookieConsent({
     !under13 &&
     !!choice?.analytics &&
     analyticsEnabled &&
-    !!analyticsPage(pathname, "https://reelogram.duckdns.org");
+    isAnalyticsPage(pathname);
   useEffect(() => {
     if (!ready) return;
     const target = window as AnalyticsWindow;

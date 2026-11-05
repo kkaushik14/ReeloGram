@@ -1,5 +1,5 @@
-/** One canonical origin for search, sharing and sitemap URLs, never request headers. */
-export const SITE_ORIGIN = "https://www.reelogram.in";
+import { appOrigin } from "../config/app-url.ts";
+export { appOrigin as siteOrigin } from "../config/app-url.ts";
 export const SITE_NAME = "ReeloGram";
 export const SITE_DESCRIPTION =
   "Watch and share original videos on ReeloGram. Discover new perspectives, explore Reels, and share moments of your own.";
@@ -23,7 +23,7 @@ export const PRIVATE_PAGES = [
   "/upload",
 ] as const;
 export const videoPath = (id: string) => `/videos/${id}`;
-export const absoluteUrl = (path: string) => `${SITE_ORIGIN}${path}`;
+export const absoluteUrl = (path: string) => `${appOrigin()}${path}`;
 export const validVideoId = (id: string) => /^[a-f0-9]{24}$/i.test(id);
 
 /** Legacy feed records have no placement; everything else must explicitly be public. */

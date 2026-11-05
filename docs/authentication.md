@@ -33,7 +33,7 @@ REELOGRAM_SMTP_SECURE=0
 
 Port 587 requires STARTTLS. Port 465 uses implicit TLS. Certificate verification remains enabled. The provider may require an application password rather than the normal account password.
 
-`REELOGRAM_APP_URL`, or otherwise `REELOGRAM_NEXTAUTH_URL`, determines links in messages. Use HTTPS in a public environment; HTTP is accepted only for local development. Links are never constructed from a visitor-supplied Host header. Change the local URL to the actual public origin before deployment.
+`REELOGRAM_APP_URL`, or otherwise `REELOGRAM_NEXTAUTH_URL`, is the shared origin for authentication, email links and SEO. When both are present, `REELOGRAM_APP_URL` takes precedence throughout the app. Use HTTPS in a public environment; HTTP is accepted only for local development. Links are never constructed from a visitor-supplied Host header. Change the local URL to the actual public origin before deployment.
 
 The optional Resend adapter uses `REELOGRAM_EMAIL_PROVIDER=resend`, `REELOGRAM_RESEND_API_KEY` and the same `REELOGRAM_EMAIL_FROM`. It does not change calling code.
 

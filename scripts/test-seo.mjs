@@ -126,7 +126,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
   const robots = await (await request("/robots.txt")).text();
-  assert.match(robots, /Sitemap: https:\/\/www\.reelogram\.in\/sitemap\.xml/);
+  assert.ok(robots.includes(`Sitemap: ${base}/sitemap.xml`));
   assert.match(robots, /Disallow: \/api\//);
   assert.match(robots, /Allow: \/api\/videos/);
   assert.match(robots, /Allow: \/api\/showcase/);
@@ -159,9 +159,8 @@ try {
   await request("/sitemaps/videos-000.xml", 404);
   await request(`/videos/${String(record._id).toUpperCase()}`, 308);
   const watch = await (await request(`/videos/${record._id}`)).text();
-  assert.match(
-    watch,
-    /rel="canonical" href="https:\/\/www.reelogram.in\/videos\//,
+  assert.ok(
+    watch.includes(`rel="canonical" href="${base}/videos/${record._id}"`),
   );
   assert.match(watch, /property="og:image"/);
   assert.match(watch, /name="twitter:card"/);
@@ -230,7 +229,7 @@ try {
     body: '{"title":"Unauthorized"}',
   });
   const home = await (await request("/")).text();
-  assert.match(home, /rel="canonical" href="https:\/\/www.reelogram.in\/?"/);
+  assert.ok(home.includes(`rel="canonical" href="${base}"`));
   const filtered = await (await request("/?q=Ocean")).text();
   assert.match(filtered, /name="robots" content="noindex/);
   const old = await request(`/?video=${record._id}`, 308);

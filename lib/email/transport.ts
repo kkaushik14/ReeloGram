@@ -1,3 +1,4 @@
+export { appOrigin } from "../config/app-url.ts";
 import { smtpConfigured, sendSmtp } from "./smtp.ts";
 import { sendWithBrevoFallback } from "./brevo-delivery.ts";
 export type EmailMessage = {
@@ -7,24 +8,6 @@ export type EmailMessage = {
   text: string;
 };
 export class EmailConfigurationError extends Error {}
-export function appOrigin() {
-  const value =
-    process.env.REELOGRAM_APP_URL || process.env.REELOGRAM_NEXTAUTH_URL;
-  if (!value)
-    throw new EmailConfigurationError(
-      "Set REELOGRAM_APP_URL or REELOGRAM_NEXTAUTH_URL",
-    );
-  const url = new URL(value);
-  if (
-    url.protocol !== "https:" &&
-    !(
-      url.protocol === "http:" &&
-      ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
-    )
-  )
-    throw new EmailConfigurationError("Use HTTPS for public email links");
-  return url.origin;
-}
 export function emailConfigured() {
   if (!process.env.REELOGRAM_EMAIL_FROM) return false;
   switch (process.env.REELOGRAM_EMAIL_PROVIDER || "resend") {
