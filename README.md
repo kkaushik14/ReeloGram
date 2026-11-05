@@ -53,7 +53,7 @@ For manual form checks, add `--hold` to keep the temporary app running. The runn
 - `POST /api/auth/register`: accepts JSON containing `email` and `password`; passwords are hashed before storage. Requires at least 8 characters and no more than 72 UTF-8 bytes.
 - `GET /api/imagekit-auth`: returns short-lived upload authentication parameters for signed-in users. Responses are not cached.
 - `POST /api/videos`: saves metadata for an uploaded video; requires a signed-in session.
-- `GET /api/videos?limit=20&cursor=...`: public video feed, newest first, with a default page size of 20 and maximum of 100. Returns `{ videos, nextCursor }`; pass `nextCursor` back unchanged for the next page. An empty/end page has `nextCursor: null`. Responses are not cached.
+- `GET /api/videos?limit=5&cursor=...`: public video feed, newest first, with a default and maximum initial page size of five, then one video per cursor request. Returns `{ videos, nextCursor, total }`; pass `nextCursor` back unchanged for the next page. An empty/end page has `nextCursor: null`. Responses are not cached.
 - `PATCH /api/videos/:id`: uploader-only partial edits to title, description and controls.
 - `DELETE /api/videos/:id`: uploader-only deletion with ImageKit cleanup.
 
@@ -87,13 +87,14 @@ If Node reports a missing Homebrew dynamic library, use an installed working Nod
 
 ## Frontend
 
-- `/`: real community feed, search and sorting of loaded videos, pagination, playback and share links.
+- `/`: community and credited Pexels feed; server search, source/date filters, oldest/newest sorting, pagination, playback and share links.
+- `/reels`: compact vertical video viewer, separate left controls and right details, active-only playback, sound, pause, seeking, sharing and keyboard navigation. Five records load initially; each forward move queues one more record.
 - `/my-videos`: the signed-in user’s videos, with edit and delete dialogs.
 - `/upload`: choose an MP4 or WebM video and cover, enter a title and description, then publish with progress feedback. Successful uploads are retained for retry if publishing fails.
 - `/login` and `/register`: account forms with password visibility and clear errors.
 - Appearance preferences are saved in the browser; the initial appearance is light.
 
-`app/design-tokens.css` preserves the supplied token file. Shared styles use its semantic color variables. No example videos, made-up activity, or view counts are seeded into the feed.
+`app/design-tokens.css` preserves the supplied token file. Shared styles use its semantic color variables. The optional curated Pexels import adds real licensed clips with creator/source credits; no made-up activity or view counts are displayed.
 
 `GET /api/videos?mine=true` requires a session and filters on its user ID. `GET /api/videos/:id` returns an available video for share links; videos pending deletion are excluded.
 
@@ -101,4 +102,17 @@ If Node reports a missing Homebrew dynamic library, use an installed working Nod
 
 `app/motion.css` holds the shared motion settings. Headlines reveal once without changing their reserved space; buttons and cards have restrained hover feedback; pending actions use localized spinners and skeletons. Dialogs and notices have brief entrances. The mobile drawer enters from its existing left edge, supports Escape, and returns focus to the menu button.
 
-The Discover banner lazily imports Three.js only after eligible desktop mouse input. Its cube surface has no idle impulses, caps pixel ratio at 2, pauses when settled, and disposes graphics on pointer leave/cancel, blur, hidden/offscreen state, or a capability change. Reduced motion, limited hardware, and graphics failures use the static banner. Reduced-motion preferences also disable the other movement effects. No API, upload, or account behavior is driven by animation.
+The resource banner rotates between Pexels, Pixabay, Coverr and Mixkit every seven seconds, pauses on hover/focus or when the page is hidden, and has manual selection and pause controls. Reduced-motion preferences stop the banner and disable automatic Reels playback. Only the current Reel plays; hidden/offscreen players pause. The existing optional cube animation component remains available but is no longer mounted on Discover. No API, upload, or account behavior is driven by animation.
+
+
+## Curated Pexels collection
+
+`npm run seed:pexels` previews three reviewed clips. `npm run seed:pexels -- --apply` uploads the videos and covers to the configured ImageKit account and saves their records in the configured MongoDB database. It is a manual import, never an application-startup job. A unique source ID makes repeat runs skip existing clips. Files created by a failed import are cleaned up. Credentials stay in local environment files.
+
+The collection manifest is `scripts/pexels-clips.mjs`. Originals and creator names were checked on their Pexels pages. Each record keeps its source URL, creator and [Pexels license](https://www.pexels.com/license/); the app links these credits in Browse, Reels and the player. These editorial imports have no user owner, so they cannot be claimed or modified by an arbitrary signed-in user. Future editorial management must use a trusted server-side workflow. Community uploads keep the existing uploader-only controls.
+
+The resource banner links to the free-video collections on Pexels, Pixabay, Coverr and Mixkit without implying partnerships or that clips from every site have been imported. Only the three credited Pexels clips are imported. The Pexels and Pixabay icons come from Simple Icons; Coverr and Mixkit use their official website icons. Pexels' [logo and credit guidance](https://help.pexels.com/hc/en-us/articles/900005851903-How-should-I-give-credit-Can-I-use-your-logo) permits attribution use.
+
+Feed filters: `q` searches titles, descriptions and credited creators (160 characters maximum); `sort=newest|oldest`; `period=any|week|month|year`; `source=all|pexels|community`. Pagination cursors belong to the current combination of filters and must not be reused after filters change. `total` counts all matching records, not just the loaded page. Search treats regular-expression characters as literal text.
+
+Login and registration have a dedicated centered form layout, with no feed navigation, marketing panel or footer. Password visibility, validation, account creation and callback routing remain functional.

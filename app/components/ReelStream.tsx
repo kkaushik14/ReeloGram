@@ -1,0 +1,54 @@
+"use client";
+import {useEffect,useRef,useState,type MutableRefObject} from "react";
+import {ArrowDown,ArrowUp,Check,Copy,Pause,Pencil,Play,Trash2,Volume2,VolumeX} from "lucide-react";
+import VideoCredit from "./VideoCredit";
+import type {FeedVideo} from "./VideoFeed";
+
+type Props={videos:FeedVideo[];suspended:boolean;userId?:string;hasMore:boolean;loading:boolean;cursor:string|null;onMore:()=>void;onEdit:(video:FeedVideo)=>void;onDelete:(video:FeedVideo)=>void};
+export default function ReelStream({videos,suspended,userId,hasMore,loading,cursor,onMore,onEdit,onDelete}:Props){
+ const root=useRef<HTMLDivElement>(null);const player=useRef<HTMLVideoElement|null>(null);
+ const [active,setActive]=useState(videos[0]?.id);const [muted,setMuted]=useState(true);const [paused,setPaused]=useState(true);const [blocked,setBlocked]=useState(false);const [error,setError]=useState("");const [progress,setProgress]=useState(0);const [copied,setCopied]=useState(false);
+ const previous=useRef(active);const queued=useRef(0);const requestedCursor=useRef<string|null>(null);
+ const index=Math.max(0,videos.findIndex(video=>video.id===active));const current=videos[index];
+ useEffect(()=>{const media=matchMedia('(prefers-reduced-motion:reduce)');setPaused(media.matches);const change=()=>{if(media.matches)setPaused(true);};media.addEventListener('change',change);return()=>media.removeEventListener('change',change);},[]);
+ useEffect(()=>{
+  const container=root.current;if(!container)return;
+  if(!videos.some(video=>video.id===active)){setActive(videos[0]?.id);container.scrollTop=0;queued.current=0;}
+  const observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting&&entry.intersectionRatio>=.65)setActive((entry.target as HTMLElement).dataset.videoId!);},{root:container,threshold:[.65]});
+  container.querySelectorAll('[data-video-id]').forEach(element=>observer.observe(element));return()=>observer.disconnect();
+ },[videos,active]);
+ useEffect(()=>{
+  const oldIndex=videos.findIndex(video=>video.id===previous.current);
+  if(previous.current!==active){if(oldIndex>=0&&index>oldIndex)queued.current++;previous.current=active;setProgress(0);setCopied(false);setError("");setBlocked(false);setPaused(matchMedia('(prefers-reduced-motion:reduce)').matches);}
+ },[active,index,videos]);
+ useEffect(()=>{if(queued.current>0&&hasMore&&!loading&&cursor&&cursor!==requestedCursor.current){queued.current--;requestedCursor.current=cursor;onMore();}},[active,hasMore,loading,cursor,onMore]);
+ function jump(next:number){const target=root.current?.querySelectorAll<HTMLElement>('[data-video-id]')[Math.max(0,Math.min(videos.length-1,next))];if(target)root.current?.scrollTo({top:target.offsetTop,behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});}
+ function toggle(){if(blocked){setBlocked(false);setPaused(false);void player.current?.play().catch(()=>setBlocked(true));}else setPaused(value=>!value);}
+ async function share(){try{await navigator.clipboard.writeText(`${location.origin}/?video=${current.id}`);setCopied(true);}catch{setError("Couldn’t copy the link. Please try again.");}}
+ const own=!!userId&&userId===current?.uploadedBy;
+ if(!current)return null;
+ return <div className="reels-layout clean-reels">
+  <div className="reel-controls" aria-label="Video controls">
+   <button className="icon-button" onClick={toggle} aria-label={paused||blocked?"Play video":"Pause video"} title={paused||blocked?"Play":"Pause"}>{paused||blocked?<Play size={21}/>:<Pause size={21}/>}</button>
+   <button className="icon-button" onClick={()=>setMuted(value=>!value)} aria-label={muted?"Turn sound on":"Turn sound off"} title={muted?"Sound on":"Sound off"}>{muted?<VolumeX size={21}/>:<Volume2 size={21}/>}</button>
+   <button className="icon-button" onClick={share} aria-label={copied?"Link copied":"Share video"} title={copied?"Copied":"Share"}>{copied?<Check size={20}/>:<Copy size={20}/>}</button>
+   <div className="reel-control-divider"/>
+   <button className="icon-button" onClick={()=>jump(index-1)} disabled={index===0} aria-label="Previous video" title="Previous video"><ArrowUp size={21}/></button>
+   <button className="icon-button" onClick={()=>jump(index+1)} disabled={index===videos.length-1} aria-label="Next video" title="Next video"><ArrowDown size={21}/></button>
+   {loading&&<span className="motion-spinner" role="status" aria-label="Loading next video"/>}
+  </div>
+  <div className="reel-player-column"><div ref={root} className="reels-scroll" tabIndex={0} aria-label="Scroll through videos. Use the up and down arrow keys to change videos." onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(["ArrowDown","PageDown","ArrowUp","PageUp","Home","End"].includes(event.key)){event.preventDefault();jump(event.key==="Home"?0:event.key==="End"?videos.length-1:index+(["ArrowDown","PageDown"].includes(event.key)?1:-1));}}}>
+   {videos.map((video,position)=><article className={`reel-item ${video.id===active?"is-current":""}`} data-video-id={video.id} key={video.id} aria-label={video.title} inert={video.id!==active}><ReelVideo video={video} active={video.id===active&&!suspended} near={Math.abs(position-index)<=1} muted={muted} paused={paused} player={player} onBlocked={setBlocked} onProgress={setProgress} onError={()=>setError("This video can’t play right now. Try the next video.")}/></article>)}
+  </div><input className="reel-timeline" type="range" min={0} max={100} step={.1} value={progress} aria-label={`Seek in ${current.title}`} onChange={event=>{const element=player.current;if(element&&Number.isFinite(element.duration)){element.currentTime=Number(event.target.value)/100*element.duration;setProgress(Number(event.target.value));}}}/></div>
+  <aside className="reel-details" aria-label="Current video details"><span className="reel-position">{index+1} of {videos.length}{hasMore?"+":""}</span><h2>{current.title}</h2><p>{current.description}</p><VideoCredit video={current}/>{own&&<div className="owner-actions"><button onClick={()=>onEdit(current)}><Pencil size={16}/>Edit</button><button onClick={()=>onDelete(current)}><Trash2 size={16}/>Delete</button></div>}{blocked&&<p className="reel-help">Press play to start this video.</p>}{error&&<p className="error-text" role="alert">{error}</p>}{copied&&<p className="muted" role="status">Link copied</p>}<p className="reel-help">Scroll or use <kbd>↑</kbd> <kbd>↓</kbd></p></aside>
+ </div>;
+}
+
+function ReelVideo({video,active,near,muted,paused,player,onBlocked,onProgress,onError}:{video:FeedVideo;active:boolean;near:boolean;muted:boolean;paused:boolean;player:MutableRefObject<HTMLVideoElement|null>;onBlocked:(value:boolean)=>void;onProgress:(value:number)=>void;onError:()=>void}){
+ const ref=useRef<HTMLVideoElement>(null);
+ useEffect(()=>{const element=ref.current;if(!element)return;let cancelled=false;if(active)player.current=element;
+  const sync=()=>{if(active&&!paused&&!document.hidden){element.play().then(()=>{if(!cancelled)onBlocked(false);}).catch(()=>{if(!cancelled)onBlocked(true);});}else element.pause();};
+  sync();document.addEventListener('visibilitychange',sync);return()=>{cancelled=true;element.pause();document.removeEventListener('visibilitychange',sync);if(player.current===element)player.current=null;};
+ },[active,paused,player,onBlocked]);
+ return <video ref={ref} src={near?video.videoUrl:undefined} poster={video.thumbnailUrl} muted={muted} loop playsInline preload="none" aria-hidden="true" onError={()=>{if(active)onError();}} onTimeUpdate={event=>{const element=event.currentTarget;if(active&&Number.isFinite(element.duration)&&element.duration>0)onProgress(element.currentTime/element.duration*100);}}/>;
+}

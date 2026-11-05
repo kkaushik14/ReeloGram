@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import mongoose from "mongoose";
+import mongoose, { type FilterQuery } from "mongoose";
 import { authOptions } from "@/lib/auth-opt";
 import { connectToDatabase } from "@/lib/db";
 import { parseFeedQuery, parseVideoInput } from "@/lib/video-input";
@@ -13,23 +13,41 @@ const headers = { "Cache-Control": "no-store" };
 
 export async function GET(req: Request) {
     const query = parseFeedQuery(new URL(req.url).searchParams);
-    if (!query) return NextResponse.json({ error: "Invalid limit or cursor" }, { status: 400, headers });
-    const mine = new URL(req.url).searchParams.get("mine") === "true";
+    if (!query) return NextResponse.json({ error: "Invalid feed filters or cursor" }, { status: 400, headers });
+    const mine = query.mine;
     const session = mine ? await getServerSession(authOptions) : null;
     if (mine && !session?.user?.id) return NextResponse.json({ error: "Authentication required" }, { status: 401, headers });
     try {
         await connectToDatabase();
-        const filter = query.cursor ? { $or: [
-            { createdAt: { $lt: query.cursor.createdAt } },
-            { createdAt: query.cursor.createdAt, _id: { $lt: new mongoose.Types.ObjectId(query.cursor.id) } },
-        ] } : {};
-        const records = await Video.find({ $and: [{ deletionPending: { $ne: true } }, mine ? { uploadedBy: session!.user.id } : {}, filter] }).sort({ createdAt: -1, _id: -1 }).limit(query.limit + 1).lean<InterFVideo[]>();
+        const direction = query.sort === "oldest" ? 1 : -1;
+        const comparison = direction === 1 ? "$gt" : "$lt";
+        const conditions: FilterQuery<InterFVideo>[] = [{ deletionPending: { $ne: true } }];
+        if (mine) conditions.push({ uploadedBy: session!.user.id });
+        if (query.source === "pexels") conditions.push({ "source.provider": "Pexels" });
+        if (query.source === "community") conditions.push({ "source.provider": { $ne: "Pexels" } });
+        if (query.q) {
+            const escaped = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            conditions.push({ $or: [{ title: { $regex: escaped, $options: "i" } }, { description: { $regex: escaped, $options: "i" } }, { "source.creator": { $regex: escaped, $options: "i" } }] });
+        }
+        if (query.period !== "any") {
+            const days = query.period === "week" ? 7 : query.period === "month" ? 30 : 365;
+            conditions.push({ createdAt: { $gte: new Date(Date.now() - days * 86400000) } });
+        }
+        const countFilter = { $and: [...conditions] };
+        if (query.cursor) conditions.push({ $or: [
+            { createdAt: { [comparison]: query.cursor.createdAt } },
+            { createdAt: query.cursor.createdAt, _id: { [comparison]: new mongoose.Types.ObjectId(query.cursor.id) } },
+        ] });
+        const [records, total] = await Promise.all([
+            Video.find({ $and: conditions }).sort({ createdAt: direction, _id: direction }).limit(query.limit + 1).lean<InterFVideo[]>(),
+            Video.countDocuments(countFilter),
+        ]);
         const page = records.slice(0, query.limit);
         const last = page.at(-1);
         const nextCursor = records.length > query.limit && last ? Buffer.from(JSON.stringify({
-            id: last._id!.toString(), createdAt: last.createdAt,
+            id: last._id!.toString(), createdAt: last.createdAt, context: query.context,
         })).toString("base64url") : null;
-        return NextResponse.json({ videos: page.map(serialize), nextCursor }, { headers });
+        return NextResponse.json({ videos: page.map(serialize), nextCursor, total }, { headers });
     } catch (error) {
         console.error("Video feed failed", error instanceof Error ? error.name : "Unknown error");
         return NextResponse.json({ error: "Video feed is temporarily unavailable" }, { status: 503, headers });

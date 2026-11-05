@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-    if (pathname === "/" || pathname === "/icon.svg" || /^\/(file|globe|next|vercel|window)\.svg$/.test(pathname) ||
+    if (pathname === "/" || pathname === "/reels" || pathname === "/icon.svg" || /^\/brands\/(pexels|pixabay)\.svg$/.test(pathname) || /^\/brands\/(coverr|mixkit)\.png$/.test(pathname) || /^\/(file|globe|next|vercel|window)\.svg$/.test(pathname) ||
         pathname === "/login" || pathname === "/register" ||
         pathname === "/api/auth" || pathname.startsWith("/api/auth/") ||
         (req.method === "GET" && (pathname === "/api/videos" || pathname.startsWith("/api/videos/")))) {

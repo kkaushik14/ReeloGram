@@ -7,5 +7,6 @@ export function serializeVideo(video: InterFVideo) {
         videoUrl: video.videoUrl, thumbnailUrl: video.thumbNailUrl, controls: video.controls,
         transformation: video.transformatioon, uploadedBy: video.uploadedBy?.toString(),
         createdAt: video.createdAt, updatedAt: video.updatedAt,
+        source: video.source,
     };
 }

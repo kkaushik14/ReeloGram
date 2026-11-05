@@ -110,7 +110,7 @@ try {
     await request("/api/videos?mine=true", { anonymous: true, expected: 401 });
     const initialFeed = await (await request("/api/videos", { anonymous: true })).json();
     assert.ok(Array.isArray(initialFeed.videos));
-    if (!configuredDatabase) assert.deepEqual(initialFeed, { videos: [], nextCursor: null });
+    if (!configuredDatabase) assert.deepEqual(initialFeed, { videos: [], nextCursor: null, total: 0 });
     registrationAttempted = true;
     const attempts = await Promise.all([email, email.toUpperCase()].map((address) =>
         fetch(base + "/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -206,6 +206,42 @@ try {
         assert.equal(second.videos[0].id, savedVideos[0].id);
         if (!configuredDatabase) assert.equal(second.nextCursor, null);
         console.log("Video persistence, author attribution, duplicate rejection, media validation and public feed pagination passed.");
+        const sourceDb = await mongoose.createConnection(databaseUri).asPromise();
+        try {
+            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$set:{source:{provider:"Pexels",id:`e2e-${runId}`,creator:`Credit ${runId}`,url:"https://www.pexels.com/videos/",license:"https://www.pexels.com/license/"}}});
+            const pexels = await (await request(`/api/videos?q=${runId}&source=pexels`, {anonymous:true})).json();
+            assert.equal(pexels.total,1); assert.equal(pexels.videos[0].source.creator,`Credit ${runId}`);
+            const community = await (await request(`/api/videos?q=${runId}&source=community`, {anonymous:true})).json();
+            assert.equal(community.total,1); assert.equal(community.videos[0].id,savedVideos[1].id);
+        } finally {
+            await sourceDb.collection("videos").updateOne({fileId:savedVideos[0].fileId}, {$unset:{source:""}});
+            await sourceDb.close();
+        }
+
+        const filterQuery = `q=${encodeURIComponent(runId)}`;
+        const matching = await (await request(`/api/videos?${filterQuery}`, { anonymous: true })).json();
+        assert.equal(matching.total, 2);
+        const ascending = await (await request(`/api/videos?${filterQuery}&sort=oldest&limit=1`, { anonymous: true })).json();
+        assert.equal(ascending.videos[0].id, savedVideos[0].id);
+        const ascendingNext = await (await request(`/api/videos?${filterQuery}&sort=oldest&limit=1&cursor=${ascending.nextCursor}`, { anonymous: true })).json();
+        assert.equal(ascendingNext.videos[0].id, savedVideos[1].id);
+        await request(`/api/videos?${filterQuery}&cursor=${ascending.nextCursor}`, { anonymous: true, expected: 400 });
+        const literal = await (await request(`/api/videos?q=${encodeURIComponent(runId + ".*")}`, { anonymous: true })).json();
+        assert.equal(literal.total, 0);
+        const dates = await mongoose.createConnection(databaseUri).asPromise();
+        try {
+            await dates.collection('videos').updateOne({fileId:savedVideos[0].fileId},{$set:{createdAt:new Date(Date.now()-45*86400000)}});
+            const recent = await (await request(`/api/videos?${filterQuery}&period=month`, {anonymous:true})).json();
+            assert.equal(recent.total,1);
+            assert.equal(recent.videos[0].id,savedVideos[1].id);
+            const year = await (await request(`/api/videos?${filterQuery}&period=year`, {anonymous:true})).json();
+            assert.equal(year.total,2);
+        } finally {
+            await dates.collection('videos').updateOne({fileId:savedVideos[0].fileId},{$set:{createdAt:new Date(savedVideos[0].createdAt)}});
+            await dates.close();
+        }
+        console.log('Server-side search, literal escaping, date filters, ascending pagination and cursor isolation passed.');
+
 
         const personal = await (await request("/api/videos?mine=true")).json();
         assert.ok(personal.videos.every((video) => video.uploadedBy === session.user.id));
@@ -267,6 +303,24 @@ try {
     assert.deepEqual(await (await request("/api/auth/session")).json(), {});
     await request("/api/imagekit-auth", { expected: 401 });
     await request("/api/videos", { data: { title: "Logged out" }, expected: 401 });
+    if (!configuredDatabase) {
+        const {default: mongoose} = await import("mongoose");
+        const db = await mongoose.createConnection(databaseUri).asPromise();
+        const batch = Array.from({length:10}, (_,index)=>({_id:new mongoose.Types.ObjectId(),title:`Pagination ${runId} ${index}`,description:"Pagination check",videoUrl:"https://example.invalid/test.mp4",thumbNailUrl:"https://example.invalid/test.jpg",createdAt:new Date(Date.now()-index*1000),updatedAt:new Date()}));
+        try {
+            await db.collection("videos").insertMany(batch);
+            let page = await (await request("/api/videos", {anonymous:true})).json();
+            assert.equal(page.videos.length,5);assert.equal(page.total,10);
+            const ids = new Set(page.videos.map(video=>video.id));
+            for(let index=0;index<5;index++){
+                page=await (await request(`/api/videos?limit=5&cursor=${page.nextCursor}`,{anonymous:true})).json();
+                assert.equal(page.videos.length,1);assert.ok(!ids.has(page.videos[0].id));ids.add(page.videos[0].id);
+            }
+            assert.equal(ids.size,10);assert.equal(page.nextCursor,null);
+            await request("/api/videos?limit=6",{anonymous:true,expected:400});
+            console.log("Five initial videos, one per subsequent page, bounded requests and duplicate-free pagination passed.");
+        } finally {await db.collection("videos").deleteMany({_id:{$in:batch.map(video=>video._id)}});await db.close();}
+    }
     if (process.argv.includes("--hold")) {
         console.log(`Browser test server: ${base} (runner PID ${process.pid}). Send SIGINT to finish and clean up.`);
         await once(process, "SIGINT");

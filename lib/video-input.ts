@@ -35,18 +35,26 @@ export function parseVideoInput(value: unknown) {
 }
 
 export function parseFeedQuery(params: URLSearchParams) {
-    const rawLimit = params.get("limit") ?? "20";
+    const rawLimit = params.get("limit") ?? (params.has("cursor") ? "1" : "5");
     if (!/^\d{1,3}$/.test(rawLimit)) return null;
     const limit = Number(rawLimit);
-    if (limit < 1 || limit > 100) return null;
+    if (limit < 1 || limit > 5) return null;
+    const sort = params.get("sort") ?? "newest";
+    const period = params.get("period") ?? "any";
+    const q = (params.get("q") ?? "").trim().toLowerCase();
+    const mine = params.get("mine") ?? "false";
+    const source = params.get("source") ?? "all";
+    if (!["newest", "oldest"].includes(sort) || !["any", "week", "month", "year"].includes(period) || q.length > 160 || !["true", "false"].includes(mine) || !["all", "pexels", "community"].includes(source)) return null;
+    const context = JSON.stringify([q, sort, period, mine, source]);
     const rawCursor = params.get("cursor");
     let cursor: { id: string; createdAt: Date } | undefined;
     if (rawCursor !== null) {
-        if (rawCursor.length > 256 || !/^[a-zA-Z0-9_-]+$/.test(rawCursor)) return null;
+        if (rawCursor.length > 2048 || !/^[a-zA-Z0-9_-]+$/.test(rawCursor)) return null;
         try {
             const decoded = JSON.parse(Buffer.from(rawCursor, "base64url").toString("utf8"));
             if (typeof decoded.id !== "string" || !/^[a-f0-9]{24}$/i.test(decoded.id) ||
                 typeof decoded.createdAt !== "string") return null;
+            if (decoded.context !== undefined ? decoded.context !== context : context !== JSON.stringify(["", "newest", "any", "false", "all"])) return null;
             const createdAt = new Date(decoded.createdAt);
             if (!Number.isFinite(createdAt.getTime())) return null;
             cursor = { id: decoded.id, createdAt };
@@ -54,5 +62,5 @@ export function parseFeedQuery(params: URLSearchParams) {
             return null;
         }
     }
-    return { limit, cursor };
+    return { limit: cursor ? Math.min(limit, 1) : limit, cursor, sort: sort as "newest" | "oldest", period, q, mine: mine === "true", source, context };
 }
