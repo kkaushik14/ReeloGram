@@ -7,28 +7,34 @@ export async function uploadToImageKit(
   publicKey: string,
   onProgress: (percent: number) => void,
 ) {
-  if (!publicKey) throw new Error("Uploads are temporarily unavailable. Please try again later.");
-  const response = await fetch("/api/imagekit-auth", {
+  if (!publicKey)
+    throw new Error(
+      "Uploads are temporarily unavailable. Please try again later.",
+    );
+  const response = await fetch(`/api/imagekit-auth?kind=${kind}`, {
     cache: "no-store",
     signal: AbortSignal.timeout(UPLOAD_POLICY.authTimeoutMs),
   });
   if (!response.ok)
-    throw new Error(response.status === 429
-      ? "Too many uploads. Please wait before trying again."
-      : response.status === 401
-      ? "Please sign in again before uploading."
-      : "Uploads are temporarily unavailable. Please try again later.");
+    throw new Error(
+      response.status === 429
+        ? "Too many uploads. Please wait before trying again."
+        : response.status === 401
+          ? "Please sign in again before uploading."
+          : "Uploads are temporarily unavailable. Please try again later.",
+    );
   const auth = await response.json();
-  if (typeof auth.signature !== "string" || typeof auth.token !== "string" ||
-    !Number.isFinite(Number(auth.expire)) || Number(auth.expire) <= Date.now() / 1000)
+  if (
+    typeof auth.token !== "string" ||
+    !auth.params ||
+    typeof auth.params.folder !== "string"
+  )
     throw new Error("We couldn’t start a secure upload. Please try again.");
   const data = new FormData();
   data.set("file", file);
-  data.set("fileName", file.name);
-  data.set("folder", kind === "video" ? "/videos" : "/images");
-  data.set("publicKey", publicKey);
-  for (const key of ["signature", "token", "expire"])
-    data.set(key, String(auth[key]));
+  data.set("token", auth.token);
+  for (const [key, value] of Object.entries(auth.params))
+    data.set(key, String(value));
 
   return new Promise<string>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -45,7 +51,11 @@ export async function uploadToImageKit(
       if (settled) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        finish(new Error("The upload stopped making progress. Your form is saved on this page; please try again."));
+        finish(
+          new Error(
+            "The upload stopped making progress. Your form is saved on this page; please try again.",
+          ),
+        );
         xhr.abort();
       }, milliseconds);
     };
@@ -59,19 +69,43 @@ export async function uploadToImageKit(
         onProgress(Math.round((event.loaded / event.total) * 100));
     };
     xhr.upload.onload = () => watchProgress(UPLOAD_POLICY.processingMs);
-    xhr.onerror = () => finish(new Error("We couldn’t reach the upload service. Check your connection and try again."));
-    xhr.ontimeout = () => finish(new Error("The upload took too long. Please try again with a smaller video or a faster connection."));
-    xhr.onabort = () => finish(new Error("The upload was stopped. Your form is kept so you can try again."));
+    xhr.onerror = () =>
+      finish(
+        new Error(
+          "We couldn’t reach the upload service. Check your connection and try again.",
+        ),
+      );
+    xhr.ontimeout = () =>
+      finish(
+        new Error(
+          "The upload took too long. Please try again with a smaller video or a faster connection.",
+        ),
+      );
+    xhr.onabort = () =>
+      finish(
+        new Error(
+          "The upload was stopped. Your form is kept so you can try again.",
+        ),
+      );
     xhr.onload = () => {
       try {
         const result = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300 && typeof result.fileId === "string" && result.fileId) {
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300 &&
+          typeof result.fileId === "string" &&
+          result.fileId
+        ) {
           onProgress(100);
           finish(undefined, result.fileId);
         } else {
-          finish(new Error(xhr.status === 413
-            ? "The upload service couldn’t accept this file size. Please choose a smaller file."
-            : "The upload service couldn’t accept this file. Please try again."));
+          finish(
+            new Error(
+              xhr.status === 413
+                ? "The upload service couldn’t accept this file size. Please choose a smaller file."
+                : "The upload service couldn’t accept this file. Please try again.",
+            ),
+          );
         }
       } catch {
         finish(new Error("We couldn’t confirm this upload. Please try again."));

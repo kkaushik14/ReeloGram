@@ -1,3 +1,4 @@
+import { ownsUpload } from "@/lib/uploads/authorization";
 import { after, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import mongoose, { type FilterQuery } from "mongoose";
@@ -208,6 +209,14 @@ export async function POST(req: Request) {
             { status: missing ? 404 : 503 },
           );
         }
+        if (
+          !ownsUpload(videoFile, session.user.id, "video") ||
+          !ownsUpload(thumbnail, session.user.id, "image")
+        )
+          return NextResponse.json(
+            { error: "Upload your video and cover again from this account." },
+            { status: 403, headers },
+          );
         const mediaError = publishMediaError(videoFile, thumbnail);
         if (mediaError) {
           console.warn("Publish rejected", {

@@ -660,26 +660,23 @@ try {
       fixture.type.startsWith("video/"),
     );
     for (const fixture of [
-      ...fixtures,
+      ...fixtures.filter(item => item.type !== "application/pdf"),
       { ...videoFixture, name: "second-frame.avi" },
     ]) {
-      const authResponse = await request("/api/imagekit-auth");
+      const authResponse = await request(`/api/imagekit-auth?kind=${fixture.type.startsWith("image/") ? "image" : "video"}`);
       assert.match(authResponse.headers.get("cache-control"), /no-store/);
       const auth = await authResponse.json();
-      assert.ok(auth.expire > Date.now() / 1000);
+      assert.ok(auth.token && auth.params);
       const form = new FormData();
       form.set(
         "file",
         new Blob([fixture.bytes], { type: fixture.type }),
         fixture.name,
       );
-      form.set("fileName", `e2e-${runId}-${fixture.name}`);
-      form.set("folder", fixture.folder);
-      form.set("publicKey", process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
-      for (const key of ["token", "expire", "signature"])
-        form.set(key, String(auth[key]));
+      form.set("token", auth.token);
+      for (const [key, value] of Object.entries(auth.params)) form.set(key, value);
       const upload = await fetch(
-        "https://upload.imagekit.io/api/v1/files/upload",
+        "https://upload.imagekit.io/api/v2/files/upload",
         {
           method: "POST",
           body: form,
@@ -694,7 +691,7 @@ try {
         `ImageKit ${fixture.type} upload HTTP status`,
       );
       assert.ok(result.fileId);
-      assert.ok(result.name.startsWith(`e2e-${runId}-`));
+      assert.equal(result.name, auth.params.fileName);
       const download = await fetch(result.url, {
         signal: AbortSignal.timeout(30000),
       });
@@ -737,7 +734,8 @@ try {
         assert.equal(saved.controls, false);
         assert.ok(!("dateOfBirth" in saved.uploader));
         await waitEmail("Your video is live on ReeloGram");
-        savedVideos.push(saved);
+        assert.ok(!("fileId" in saved) && !("thumbnailFileId" in saved));
+        savedVideos.push({...saved, fileId: result.fileId});
         assert.equal(
           (
             await (
@@ -774,7 +772,7 @@ try {
         fileId: thumbnailFile.fileId,
         thumbnailFileId: thumbnailFile.fileId,
       },
-      expected: 400,
+      expected: 403,
     });
     await request("/api/videos", {
       data: {
@@ -1143,20 +1141,17 @@ try {
       },
       fixtures[0],
     ]) {
-      const auth = await (await request("/api/imagekit-auth")).json();
+      const auth = await (await request(`/api/imagekit-auth?kind=${fixture.type.startsWith("image/") ? "image" : "video"}`)).json();
       const form = new FormData();
       form.set(
         "file",
         new Blob([fixture.bytes], { type: fixture.type }),
         fixture.name,
       );
-      form.set("fileName", `e2e-${runId}-${fixture.name}`);
-      form.set("folder", fixture.folder);
-      form.set("publicKey", process.env.REELOGRAM_NEXT_PUBLIC_PUBLIC_KEY);
-      for (const key of ["signature", "token", "expire"])
-        form.set(key, String(auth[key]));
+      form.set("token", auth.token);
+      for (const [key, value] of Object.entries(auth.params)) form.set(key, value);
       const response = await fetch(
-        "https://upload.imagekit.io/api/v1/files/upload",
+        "https://upload.imagekit.io/api/v2/files/upload",
         { method: "POST", body: form, signal: AbortSignal.timeout(60000) },
       );
       const file = await response.json();

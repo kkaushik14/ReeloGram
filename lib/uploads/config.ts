@@ -1,5 +1,5 @@
 export const UPLOAD_POLICY = {
-  endpoint: "https://upload.imagekit.io/api/v1/files/upload",
+  endpoint: "https://upload.imagekit.io/api/v2/files/upload",
   authTimeoutMs: 15000,
   inactivityMs: 90000,
   processingMs: 120000,

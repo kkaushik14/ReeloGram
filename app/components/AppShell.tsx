@@ -155,6 +155,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="sidebar-head">
           <Link
+            prefetch={false}
             href="/"
             aria-label="ReeloGram home"
             className="brand"
@@ -210,7 +211,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Film size={20} />
           </span>
           <h3>Something worth sharing?</h3>
-          <Link href="/upload" onClick={() => setMenu(false)}>
+          <Link prefetch={false} href="/upload" onClick={() => setMenu(false)}>
             Share a video <ArrowUpRight size={16} />
           </Link>
         </div>
@@ -246,10 +247,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </>
             ) : (
               <>
-                <Link href="/login" onClick={() => setMenu(false)}>
+                <Link
+                  prefetch={false}
+                  href="/login"
+                  onClick={() => setMenu(false)}
+                >
                   Sign in
                 </Link>
-                <Link href="/register" onClick={() => setMenu(false)}>
+                <Link
+                  prefetch={false}
+                  href="/register"
+                  onClick={() => setMenu(false)}
+                >
                   Join ReeloGram <ArrowUpRight size={15} />
                 </Link>
               </>
@@ -288,6 +297,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="workspace">
         <header className="topbar">
           <Link
+            prefetch={false}
             href="/"
             className="mobile-brand"
             aria-label="ReeloGram home"
@@ -336,10 +346,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </>
             ) : (
               <>
-                <Link href="/login" className="text-button">
+                <Link prefetch={false} href="/login" className="text-button">
                   Sign in
                 </Link>
-                <Link href="/register" className="button secondary small">
+                <Link
+                  prefetch={false}
+                  href="/register"
+                  className="button secondary small"
+                >
                   Join ReeloGram <ArrowUpRight size={15} />
                 </Link>
               </>

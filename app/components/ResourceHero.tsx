@@ -44,6 +44,16 @@ export default function ResourceHero({
 }: {
   suspended?: boolean;
 }) {
+  const section = useRef<HTMLElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.05 },
+    );
+    if (section.current) observer.observe(section.current);
+    return () => observer.disconnect();
+  }, []);
   const player = useRef<HTMLVideoElement>(null);
   const { preferences, ready } = useBrowserPreferences();
   const [clips, setClips] = useState<FeedVideo[]>([]);
@@ -69,13 +79,36 @@ export default function ResourceHero({
     };
   }, []);
   useEffect(() => {
-    if (paused || hovered || focused || reduced || hidden) return;
+    if (
+      paused ||
+      hovered ||
+      focused ||
+      reduced ||
+      hidden ||
+      !inView ||
+      suspended ||
+      !ready ||
+      !preferences.autoplay ||
+      preferences.quality === "saver"
+    )
+      return;
     const timer = setInterval(
       () => setIndex((value) => (value + 1) % resources.length),
       7000,
     );
     return () => clearInterval(timer);
-  }, [paused, hovered, focused, reduced, hidden]);
+  }, [
+    paused,
+    hovered,
+    focused,
+    reduced,
+    hidden,
+    inView,
+    suspended,
+    ready,
+    preferences.autoplay,
+    preferences.quality,
+  ]);
   const resource = resources[index];
   const clip = clips.find((item) => item.source?.provider === resource.name);
   useEffect(() => {
@@ -107,6 +140,7 @@ export default function ResourceHero({
         </Link>
       </div>
       <section
+        ref={section}
         className={`resource-hero ${paused ? "is-paused" : ""}`}
         aria-label="Discover free video resources"
         style={{ background: resource.background }}
@@ -121,7 +155,7 @@ export default function ResourceHero({
         {clip && (
           <>
             <AdaptiveVideo
-              active={!suspended}
+              active={!suspended && inView}
               context="hero"
               playing={
                 ready &&

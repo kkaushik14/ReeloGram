@@ -15,7 +15,7 @@ class UploadRequest {
   abort() { this.aborted = true; this.onabort?.(); }
 }
 async function start(t) {
-  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({signature:"signature",token:"token",expire:Math.floor(Date.now()/1000)+3600})));
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({token:"token",params:{folder:"/users/test/video",fileName:"random"}})));
   const original = globalThis.XMLHttpRequest;
   globalThis.XMLHttpRequest = UploadRequest;
   t.after(() => { if (original) globalThis.XMLHttpRequest = original; else delete globalThis.XMLHttpRequest; });
