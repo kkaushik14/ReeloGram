@@ -84,6 +84,14 @@ Browser checks cover desktop/mobile account steps, wrong-password recovery navig
 
 ## Direct upload permissions
 
-Browser uploads use ImageKit V2 with a server-generated HS256 JWT. It fixes a random filename, the authenticated user's folder, public visibility, detected MIME/size checks and `overwriteFile=false`. Reusing a grant cannot overwrite a file or create multiple uniquely named files. The authorization endpoint remains session-checked, verification-gated, same-origin checked and rate limited. Grants last 30 minutes to allow slow transfers; large file bodies still travel directly to ImageKit.
+Browser uploads use ImageKit V2 with a server-generated HS256 JWT. It fixes the filename, the authenticated user's folder, public visibility, detected MIME/size checks and `overwriteFile=false`. Reusing a grant cannot overwrite a file or create multiple uniquely named files. The authorization endpoint remains session-checked, verification-gated, same-origin checked and rate limited. Grants last 30 minutes to allow slow transfers; large file bodies still travel directly to ImageKit.
 
 Publishing reads authenticated ImageKit file details and verifies both assets belong to the current user's video/image folders. Public responses omit internal ImageKit file IDs. Existing published records can still be edited/deleted by their owners; unpublished files uploaded through the old flow must be uploaded again. Previously issued V1 signatures expire under their original lifetime (up to one hour); rotate the ImageKit key if immediate invalidation is required.
+
+### Readable media names
+
+`lib/uploads/naming.ts` builds `/users/<user-id>-<name-slug>/` with `profile-pictures`, `videos`, and `thumbnails` subfolders. Names are normalized on the server; unsafe path characters are removed, long names are bounded, and missing/non-Latin names fall back to `user` while the user ID remains authoritative. Dates use `YYYY-MM-DD_HH-mm-ss-SSS-UTC` so timestamps are readable and independent of the server's timezone.
+
+Profile pictures are `<user-id>-<timestamp>-current.webp`, covers are `<user-id>-<timestamp>-current`, and videos are `<user-id>-<timestamp>-<video-id>`. The server reserves a MongoDB ObjectId inside the signed video filename and uses that same ID when creating the post. Direct uploads keep their detected content type; they never inherit an untrusted client filename or extension. Overwrites are disabled, including same-millisecond collisions, which fail safely and can be retried. Profile replacement retains the existing queued cleanup of the old photo. Cover editing is not currently exposed, so there is no historical cover collection.
+
+Stored URLs and ImageKit IDs remain the source of truth for reads and deletion. Existing files are not moved or renamed; older feed, showcase and profile URLs continue working. Publishing still accepts the previous signed `/users/<id>/<video-or-image>/<UUID>` layout, but does not grant ownership to legacy shared folders such as `/videos` or `/images`.

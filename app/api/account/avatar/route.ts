@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { getServerSession } from "next-auth";
-import { randomUUID } from "node:crypto";
+import { mediaLocation } from "@/lib/uploads/naming";
 import ImageKit from "imagekit";
 import { authOptions } from "@/lib/auth-opt";
 import { authFailure, assertSameOrigin } from "@/lib/auth/request";
@@ -38,7 +38,7 @@ async function updateAvatar(req: Request, remove: boolean) {
     const bytes = remove ? null : await readAvatar(req);
     return await withMediaLocks([`profile:${session.user.id}`], async () => {
       const user = await User.findById(session.user.id).select(
-        "+imageFileId image",
+        "+imageFileId image name",
       );
       if (!user)
         return Response.json(
@@ -56,8 +56,13 @@ async function updateAvatar(req: Request, remove: boolean) {
         const imagekit = new ImageKit({ publicKey, privateKey, urlEndpoint });
         const file = await imagekit.upload({
           file: bytes,
-          fileName: `avatar-${randomUUID()}.webp`,
-          folder: `/profiles/${session.user.id}`,
+          ...mediaLocation({
+            ownerId: session.user.id,
+            name: user.name,
+            purpose: "profile",
+          }),
+          useUniqueFileName: false,
+          overwriteFile: false,
           isPrivateFile: false,
         });
         uploaded = file.fileId;

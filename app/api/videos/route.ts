@@ -1,4 +1,5 @@
 import { ownsUpload } from "@/lib/uploads/authorization";
+import { namedUpload } from "@/lib/uploads/naming";
 import { after, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import mongoose, { type FilterQuery } from "mongoose";
@@ -49,9 +50,7 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const direction = query.sort === "oldest" ? 1 : -1;
     const comparison = direction === 1 ? "$gt" : "$lt";
-    const conditions: FilterQuery<InterFVideo>[] = [
-      PUBLIC_VIDEO_FILTER,
-    ];
+    const conditions: FilterQuery<InterFVideo>[] = [PUBLIC_VIDEO_FILTER];
     if (mine) conditions.push({ uploadedBy: session!.user.id });
     const providers: Record<string, string> = {
       pexels: "Pexels",
@@ -235,6 +234,10 @@ export async function POST(req: Request) {
           await Video.init();
           const video = await Video.create({
             ...input,
+            // New grants reserve the actual post ID in the signed filename.
+            // Legacy owned uploads still receive a normal generated ObjectId.
+            _id: namedUpload(videoFile.filePath, session.user.id, "video")
+              ?.videoId,
             uploadedBy: session.user.id,
             videoUrl,
             thumbNailUrl: thumbnail.url,

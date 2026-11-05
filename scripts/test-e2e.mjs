@@ -49,6 +49,7 @@ const otherEmail = `e2e-other-${runId}@example.invalid`;
 const password = randomBytes(24).toString("hex");
 const cookies = new Map();
 const uploaded = [];
+const testMediaFolders = new Set();
 let database;
 let server;
 let serverExit;
@@ -598,6 +599,7 @@ try {
       privateKey: process.env.REELOGRAM_PRIVATE_KEY,
       urlEndpoint: process.env.REELOGRAM_NEXT_PUBLIC_URL_ENDPOINT,
     });
+    testMediaFolders.add(`/users/${session.user.id}-video-creator`);
     const avatarBody = new FormData();
     const { default: sharp } = await import("sharp");
     const avatarBytes = await sharp({
@@ -626,16 +628,26 @@ try {
       await avatarDb.close();
     }
     uploaded.push(avatarId);
-    assert.equal(
-      (await mediaLibrary.getFileDetails(avatarId)).mime,
-      "image/webp",
-    );
+    const avatarDetails = await mediaLibrary.getFileDetails(avatarId);
+    assert.equal(avatarDetails.mime, "image/webp");
+    assert.equal(avatarDetails.filePath.split("/").slice(0, -1).join("/"), `/users/${session.user.id}-video-creator/profile-pictures`);
+    assert.match(avatarDetails.name, new RegExp(`^${session.user.id}-\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}-\\d{3}-UTC-current\\.webp$`));
     assert.equal(
       (await (await request("/api/auth/session")).json()).user.image,
       avatarProfile.image,
     );
-    await request("/api/account/avatar", { method: "DELETE" });
-    assert.equal((await (await request("/api/account")).json()).image, null);
+    // Replacing a photo must remove the previous file without breaking the new one.
+    await request("/api/account/avatar", { multipart: avatarBody });
+    const replacementProfile = await (await request("/api/account")).json();
+    assert.notEqual(replacementProfile.image, avatarProfile.image);
+    const replacementDb = await mongoose.createConnection(databaseUri).asPromise();
+    let replacementAvatarId;
+    try {
+      replacementAvatarId = (await replacementDb.collection("users").findOne({ email })).imageFileId;
+    } finally {
+      await replacementDb.close();
+    }
+    uploaded.push(replacementAvatarId);
     const cleanupDeadline = Date.now() + 20000;
     let cleaned = false;
     while (Date.now() < cleanupDeadline) {
@@ -651,6 +663,12 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     assert.ok(cleaned, "Removed profile photos must be cleaned from ImageKit");
+    assert.equal((await mediaLibrary.getFileDetails(replacementAvatarId)).mime, "image/webp");
+    const photoResponse = await fetch(replacementProfile.image, { signal: AbortSignal.timeout(20000) });
+    assert.equal(photoResponse.status, 200);
+    await photoResponse.arrayBuffer();
+    await request("/api/account/avatar", { method: "DELETE" });
+    assert.equal((await (await request("/api/account")).json()).image, null);
     console.log(
       "Private read-only profile, normalized ImageKit photo, session refresh and photo removal passed.",
     );
@@ -692,6 +710,10 @@ try {
       );
       assert.ok(result.fileId);
       assert.equal(result.name, auth.params.fileName);
+      const purpose = fixture.type.startsWith("image/") ? "thumbnails" : "videos";
+      assert.equal(auth.params.folder, `/users/${session.user.id}-video-creator/${purpose}`);
+      assert.ok(result.name.startsWith(`${session.user.id}-`));
+      if (purpose === "thumbnails") assert.ok(result.name.endsWith("-current"));
       const download = await fetch(result.url, {
         signal: AbortSignal.timeout(30000),
       });
@@ -721,6 +743,7 @@ try {
           thumbnailFile.fileId,
         );
         assert.equal(saved.videoUrl, verifiedVideo.url);
+        assert.ok(result.name.endsWith(`-${saved.id}`), "Stored post ID must match the signed video filename");
         assert.equal(saved.thumbnailUrl, verifiedThumbnail.url);
         assert.equal(saved.uploadedBy, session.user.id);
         assert.equal(saved.uploader.name, "Video Creator");
@@ -1782,6 +1805,19 @@ try {
       } catch (error) {
         if (error.$ResponseMetadata?.statusCode === 404) continue;
         console.error("Could not delete test upload:", fileId);
+        process.exitCode = 1;
+      }
+    }
+    for (const folder of testMediaFolders) {
+      try {
+        // Synthetic-account folders only; never recursively delete a nonempty folder.
+        const remaining = await imagekit.listFiles({ path: folder + "/", limit: 1 });
+        if (remaining.length) throw new Error("Test folder still contains files");
+        await imagekit.deleteFolder(folder);
+        console.log("Deleted empty test media folder.");
+      } catch (error) {
+        if (error.$ResponseMetadata?.statusCode === 404) continue;
+        console.error("Could not clean empty test media folder.");
         process.exitCode = 1;
       }
     }

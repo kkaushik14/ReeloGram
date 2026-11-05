@@ -1,13 +1,16 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { Types } from "mongoose";
+import { mediaLocation, namedUpload } from "./naming.ts";
 
 export function createUploadAuthorization(
   owner: string,
   kind: "video" | "image",
   publicKey: string,
   privateKey: string,
-  now = Math.floor(Date.now() / 1000),
+  options: { name?: string | null; date?: Date } = {},
 ) {
-  if (!/^[a-f0-9]{24}$/i.test(owner)) throw Error("Invalid upload owner");
+  const date = options.date ?? new Date();
+  const now = Math.floor(date.getTime() / 1000);
   const types =
     kind === "image"
       ? ["image/jpeg", "image/png", "image/webp"]
@@ -21,8 +24,14 @@ export function createUploadAuthorization(
           "image/gif",
         ];
   const params = {
-    fileName: randomUUID(),
-    folder: `/users/${owner}/${kind}`,
+    ...mediaLocation({
+      ownerId: owner,
+      name: options.name,
+      purpose: kind === "video" ? "video" : "thumbnail",
+      date,
+      videoId:
+        kind === "video" ? new Types.ObjectId().toHexString() : undefined,
+    }),
     useUniqueFileName: "false",
     overwriteFile: "false",
     isPrivateFile: "false",
@@ -43,6 +52,12 @@ export function ownsUpload(
   owner: string,
   kind: "video" | "image",
 ) {
+  if (
+    namedUpload(file.filePath, owner, kind === "video" ? "video" : "thumbnail")
+  )
+    return true;
+  // Keep already-issued V2 grants working. Never accept the old, unowned
+  // /videos or /images paths for publishing; existing posts read stored URLs.
   const prefix = `/users/${owner}/${kind}/`;
   return (
     /^[a-f0-9]{24}$/i.test(owner) &&

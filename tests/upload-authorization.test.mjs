@@ -12,7 +12,7 @@ test("upload permission signs fixed ownership, overwrite prohibition, size and d
     "image",
     "public",
     "private",
-    1000,
+    { name: "Video Creator", date: new Date(1000 * 1000) },
   );
   const [header, payload, signature] = result.token.split(".");
   assert.deepEqual(JSON.parse(Buffer.from(header, "base64url")), {
@@ -44,9 +44,10 @@ test("upload permission signs fixed ownership, overwrite prohibition, size and d
   assert.equal(ownsUpload(file, "aaaaaaaaaaaaaaaaaaaaaaaa", "image"), false);
   assert.equal(ownsUpload(file, owner, "video"), false);
   assert.notEqual(
-    createUploadAuthorization(owner, "image", "public", "private").params
+    createUploadAuthorization(owner, "video", "public", "private").params
       .fileName,
-    claims.fileName,
+    createUploadAuthorization(owner, "video", "public", "private").params
+      .fileName,
   );
 });
 

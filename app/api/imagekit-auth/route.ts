@@ -39,7 +39,15 @@ export async function GET(req: Request) {
           { status: 400, headers: { "Cache-Control": "no-store" } },
         );
       return NextResponse.json(
-        createUploadAuthorization(session.user.id, kind, publicKey, privateKey),
+        createUploadAuthorization(
+          session.user.id,
+          kind,
+          publicKey,
+          privateKey,
+          {
+            name: session.user.name,
+          },
+        ),
         {
           headers: { "Cache-Control": "no-store" },
         },
