@@ -1,5 +1,25 @@
 const fileIdPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 
+export function parseVideoUpdate(value: unknown) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const data = value as Record<string, unknown>;
+    const keys = Object.keys(data);
+    if (!keys.length || keys.some((key) => !["title", "description", "controls"].includes(key))) return null;
+    const update: { title?: string; description?: string; controls?: boolean } = {};
+    for (const key of ["title", "description"] as const) {
+        if (key in data) {
+            const text = data[key];
+            if (typeof text !== "string" || !text.trim() || text.trim().length > (key === "title" ? 120 : 2000)) return null;
+            update[key] = text.trim();
+        }
+    }
+    if ("controls" in data) {
+        if (typeof data.controls !== "boolean") return null;
+        update.controls = data.controls;
+    }
+    return update;
+}
+
 export function parseVideoInput(value: unknown) {
     if (!value || typeof value !== "object") return null;
     const data = value as Record<string, unknown>;

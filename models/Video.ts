@@ -10,6 +10,7 @@ export interface InterFVideo {
     fileId?: string;
     thumbnailFileId?: string;
     uploadedBy?: mongoose.Types.ObjectId;
+    deletionPending?: boolean;
     title: string;
     description: string;
     videoUrl: string;
@@ -28,6 +29,7 @@ const videoSchema = new Schema<InterFVideo>({
     fileId: {type: String, unique: true, sparse: true},
     thumbnailFileId: {type: String},
     uploadedBy: {type: Schema.Types.ObjectId, ref: "User"},
+    deletionPending: {type: Boolean, default: false},
     title: {type: String, required: true, trim: true, maxlength: 120},
     videoUrl: {type: String, required: true},
     thumbNailUrl: {type: String, required: true},

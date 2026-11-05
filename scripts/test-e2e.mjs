@@ -33,6 +33,7 @@ await new Promise((resolve) => listener.close(resolve));
 const base = `http://127.0.0.1:${port}`;
 const runId = randomUUID();
 const email = `e2e-${runId}@example.invalid`;
+const otherEmail = `e2e-other-${runId}@example.invalid`;
 const password = randomBytes(24).toString("hex");
 const cookies = new Map();
 const uploaded = [];
@@ -43,13 +44,13 @@ let checks = 0;
 let databaseUri;
 let registrationAttempted = false;
 
-async function request(path, { data, form, anonymous = false, expected = 200 } = {}) {
+async function request(path, { data, form, anonymous = false, expected = 200, method } = {}) {
     const headers = {};
     if (!anonymous) headers.Cookie = [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
     if (data) headers["Content-Type"] = "application/json";
     if (form) headers["Content-Type"] = "application/x-www-form-urlencoded";
     const response = await fetch(base + path, {
-        method: data || form ? "POST" : "GET",
+        method: method ?? (data || form ? "POST" : "GET"),
         headers,
         body: data ? JSON.stringify(data) : form ? new URLSearchParams(form) : undefined,
         redirect: "manual",
@@ -203,6 +204,55 @@ try {
         assert.equal(second.videos[0].id, savedVideos[0].id);
         if (!configuredDatabase) assert.equal(second.nextCursor, null);
         console.log("Video persistence, author attribution, duplicate rejection, media validation and public feed pagination passed.");
+
+        const target = `/api/videos/${savedVideos[0].id}`;
+        await request(target, { anonymous: true, method: "PATCH", data: { title: "Forbidden" }, expected: 401 });
+        await request(target, { anonymous: true, method: "DELETE", expected: 401 });
+        const ownerCookies = [...cookies];
+        await request("/api/auth/register", { data: { email: otherEmail, password }, expected: 201 });
+        await signIn({ email: otherEmail, password });
+        await request(target, { method: "PATCH", data: { title: "Forbidden" }, expected: 403 });
+        await request(target, { method: "DELETE", expected: 403 });
+        cookies.clear();
+        for (const [key, value] of ownerCookies) cookies.set(key, value);
+        await request("/api/videos/not-an-id", { method: "DELETE", expected: 400 });
+        await request("/api/videos/000000000000000000000000", { method: "DELETE", expected: 404 });
+        await request(target, { method: "PATCH", data: { uploadedBy: session.user.id }, expected: 400 });
+        await request(target, { method: "PATCH", data: { title: " " }, expected: 400 });
+        const edited = await (await request(target, { method: "PATCH", data: {
+            title: " Updated E2E title ", description: "Updated description", controls: true,
+        } })).json();
+        assert.equal(edited.title, "Updated E2E title");
+        assert.equal(edited.uploadedBy, session.user.id);
+        assert.equal(edited.controls, true);
+        const updatedFeed = await (await request("/api/videos", { anonymous: true })).json();
+        assert.equal(updatedFeed.videos.find((video) => video.id === edited.id).title, edited.title);
+
+        const db = await mongoose.createConnection(databaseUri).asPromise();
+        try {
+            const locks = db.collection("video_asset_locks");
+            await locks.insertOne({ _id: savedVideos[0].fileId, token: runId, expiresAt: new Date(Date.now() + 90000) });
+            try { await request(target, { method: "DELETE", expected: 409 }); }
+            finally { await locks.deleteOne({ _id: savedVideos[0].fileId, token: runId }); }
+            assert.equal((await db.collection("videos").findOne({ fileId: savedVideos[0].fileId })).title, edited.title);
+            await request(target, { method: "DELETE", expected: 204 });
+            assert.equal(await db.collection("videos").findOne({ fileId: savedVideos[0].fileId }), null);
+            await assert.rejects(mediaLibrary.getFileDetails(savedVideos[0].fileId), (error) => error.$ResponseMetadata?.statusCode === 404);
+            await mediaLibrary.getFileDetails(thumbnailFile.fileId); // Still used by the second video.
+            await request(target, { method: "DELETE", expected: 404 });
+
+            // Simulate a worker stopping after deleting a file but before completing cleanup.
+            const remaining = savedVideos[1];
+            await mediaLibrary.deleteFile(remaining.fileId);
+            await db.collection("videos").updateOne({ fileId: remaining.fileId }, { $set: { deletionPending: true } });
+            const pendingFeed = await (await request("/api/videos", { anonymous: true })).json();
+            assert.ok(!pendingFeed.videos.some((video) => video.id === remaining.id));
+            await request(`/api/videos/${remaining.id}`, { method: "PATCH", data: { title: "Cannot edit pending deletion" }, expected: 409 });
+            await request(`/api/videos/${remaining.id}`, { method: "DELETE", expected: 204 });
+            await assert.rejects(mediaLibrary.getFileDetails(thumbnailFile.fileId), (error) => error.$ResponseMetadata?.statusCode === 404);
+            assert.equal(await db.collection("videos").countDocuments({ fileId: { $in: savedVideos.map((video) => video.fileId) } }), 0);
+        } finally { await db.close(); }
+        console.log("Owner-only edits/deletes, shared-thumbnail retention, ImageKit removal, lock contention and partial-delete retry passed.");
     } else {
         console.log("Live ImageKit uploads skipped. Enable explicitly with: npm run test:e2e -- --imagekit");
     }
@@ -237,7 +287,8 @@ try {
             try {
                 await imagekit.deleteFile(fileId);
                 console.log("Deleted test upload.");
-            } catch {
+            } catch (error) {
+                if (error.$ResponseMetadata?.statusCode === 404) continue;
                 console.error("Could not delete test upload:", fileId);
                 process.exitCode = 1;
             }
@@ -257,8 +308,8 @@ try {
             connection = await mongoose.createConnection(databaseUri, { serverSelectionTimeoutMS: 10000 }).asPromise();
             await connection.collection("videos").deleteMany({ fileId: { $in: uploaded } });
             assert.equal(await connection.collection("videos").countDocuments({ fileId: { $in: uploaded } }), 0);
-            await connection.collection("users").deleteMany({ email });
-            assert.equal(await connection.collection("users").countDocuments({ email }), 0);
+            await connection.collection("users").deleteMany({ email: { $in: [email, otherEmail] } });
+            assert.equal(await connection.collection("users").countDocuments({ email: { $in: [email, otherEmail] } }), 0);
             console.log("Deleted this run's test account and video records from the configured database.");
         } catch {
             console.error("Could not clean up test account:", email);
