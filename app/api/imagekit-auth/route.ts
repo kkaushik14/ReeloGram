@@ -12,8 +12,13 @@ export async function GET() {
     if (!publicKey || !privateKey || !urlEndpoint) {
         return NextResponse.json({ error: "Uploads are not configured" }, { status: 503 });
     }
-    const imagekit = new ImageKit({ publicKey, privateKey, urlEndpoint });
-    return NextResponse.json(imagekit.getAuthenticationParameters(), {
-        headers: { "Cache-Control": "no-store" },
-    });
+    try {
+        const imagekit = new ImageKit({ publicKey, privateKey, urlEndpoint });
+        return NextResponse.json(imagekit.getAuthenticationParameters(), {
+            headers: { "Cache-Control": "no-store" },
+        });
+    } catch (error) {
+        console.error("Upload authentication failed", error instanceof Error ? error.name : "Unknown error");
+        return NextResponse.json({ error: "Uploads are not configured correctly" }, { status: 503 });
+    }
 }

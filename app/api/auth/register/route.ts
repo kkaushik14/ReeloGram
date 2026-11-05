@@ -16,6 +16,8 @@ export async function POST(req: Request) {
     }
     try {
         await connectToDatabase();
+        // Wait for the unique email index before accepting registrations.
+        await User.init();
         await User.create(credentials);
         return NextResponse.json({ message: "Account created" }, { status: 201 });
     } catch (error) {

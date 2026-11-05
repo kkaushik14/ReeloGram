@@ -16,25 +16,32 @@ export const authOptions: NextAuthOptions = {
             async authorize(credentials) {
                 const parsed = parseCredentials(credentials);
                 if (!parsed) return null;
-                await connectToDatabase()
-                const user = await User.findOne({email: parsed.email});
+                try {
+                    await connectToDatabase()
+                    const user = await User.findOne({email: parsed.email});
 
-                if(!user) {
-                    return null;
-                }
+                    if(!user) {
+                        return null;
+                    }
 
-                const isMatched = await bcrypt.compare(
-                    parsed.password,
-                    user.password
-                )
+                    const isMatched = await bcrypt.compare(
+                        parsed.password,
+                        user.password
+                    )
 
-                if(!isMatched) {
-                    return null;
-                }
+                    if(!isMatched) {
+                        return null;
+                    }
 
-                return {
-                    id: user._id.toString(),
-                    email: user.email
+                    return {
+                        id: user._id.toString(),
+                        email: user.email
+                    }
+                } catch (error) {
+                    // NextAuth serializes authorize errors into its response URL.
+                    // Keep database hosts and connection details server-side.
+                    console.error("Sign-in failed", error instanceof Error ? error.name : "Unknown error");
+                    throw new Error("Sign-in is temporarily unavailable. Please try again later.");
                 }
             }
         })

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:e2e": "node scripts/test-e2e.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,6 +31,7 @@
     "daisyui": "^4.12.23",
     "eslint": "^9",
     "eslint-config-next": "15.5.29",
+    "mongodb-memory-server": "10.4.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

@@ -33,6 +33,20 @@ npm run build
 
 The regression tests cover credential validation, upload type/size boundaries, and database connection caching/retry behavior without writing to a real database. A production build fetches the existing Geist fonts from Google.
 
+### End-to-end checks
+
+```sh
+npm run test:e2e
+npm run test:e2e -- --imagekit
+npm run test:e2e -- --configured-db --imagekit
+```
+
+The default run starts a disposable MongoDB database and an isolated Next.js server on an available local port. On first use, it downloads MongoDB's test binary. It checks concurrent registration, duplicate email rejection, password hashing, invalid credentials, session creation, logout, upload access control, and controlled database outage errors. It leaves the normal development server and frontend unchanged.
+
+`--imagekit` enables real PNG, video, and PDF uploads with the configured ImageKit credentials, verifies retrieval, and deletes the generated files afterward. `--configured-db` uses `MONGODB_URL` instead of the disposable database, creates a unique test account, and removes only that account after testing. Outage simulation runs only with the disposable database. These service tests require network access and working credentials in `.env.local`; no credentials are logged or committed.
+
+For manual form checks, add `--hold` to keep the temporary app running. The runner prints its local URL and process ID; send SIGINT to that process to finish cleanup. Generated test build/configuration files are ignored by Git.
+
 ## API routes
 
 - `GET/POST /api/auth/[...nextauth]`: NextAuth session and credential endpoints.

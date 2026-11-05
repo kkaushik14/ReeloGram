@@ -1,0 +1,220 @@
+import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
+import { createServer } from "node:net";
+import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { writeFile, rm } from "node:fs/promises";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import ImageKit from "imagekit";
+import { fixtures } from "./e2e-fixtures.mjs";
+
+const require = createRequire(import.meta.url);
+const nextRequire = createRequire(require.resolve("next/package.json"));
+nextRequire("@next/env").loadEnvConfig(process.cwd());
+
+// Opt in to real service writes. Only files created by this run are deleted.
+const liveUploads = process.argv.includes("--imagekit");
+const configuredDatabase = process.argv.includes("--configured-db");
+if (configuredDatabase) assert.ok(process.env.MONGODB_URL, "MONGODB_URL must be configured");
+if (liveUploads) {
+    for (const key of ["NEXT_PUBLIC_PUBLIC_KEY", "PRIVATE_KEY", "NEXT_PUBLIC_URL_ENDPOINT"]) {
+        assert.ok(process.env[key], `${key} must be configured for live upload tests`);
+    }
+}
+
+const listener = createServer();
+listener.listen(0, "127.0.0.1");
+await once(listener, "listening");
+const port = listener.address().port;
+await new Promise((resolve) => listener.close(resolve));
+const base = `http://127.0.0.1:${port}`;
+const runId = randomUUID();
+const email = `e2e-${runId}@example.invalid`;
+const password = randomBytes(24).toString("hex");
+const cookies = new Map();
+const uploaded = [];
+let database;
+let server;
+let serverExit;
+let checks = 0;
+let databaseUri;
+let registrationAttempted = false;
+
+async function request(path, { data, form, anonymous = false, expected = 200 } = {}) {
+    const headers = {};
+    if (!anonymous) headers.Cookie = [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+    if (data) headers["Content-Type"] = "application/json";
+    if (form) headers["Content-Type"] = "application/x-www-form-urlencoded";
+    const response = await fetch(base + path, {
+        method: data || form ? "POST" : "GET",
+        headers,
+        body: data ? JSON.stringify(data) : form ? new URLSearchParams(form) : undefined,
+        redirect: "manual",
+        signal: AbortSignal.timeout(30000),
+    });
+    if (!anonymous) {
+        for (const cookie of response.headers.getSetCookie()) {
+            const [pair] = cookie.split(";");
+            const separator = pair.indexOf("=");
+            cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+        }
+    }
+    assert.equal(response.status, expected, `${path} HTTP status`);
+    checks++;
+    return response;
+}
+
+async function signIn(input, expected = 200) {
+    const { csrfToken } = await (await request("/api/auth/csrf")).json();
+    return request("/api/auth/callback/credentials", {
+        form: { csrfToken, email: input.email, password: input.password, json: "true" }, expected,
+    });
+}
+
+try {
+    await writeFile(".e2e.tsconfig.json", JSON.stringify({ extends: "./tsconfig.json" }));
+    if (!configuredDatabase) {
+        database = await MongoMemoryServer.create({ instance: { dbName: "reelogram_e2e" },
+            binary: { downloadDir: join(tmpdir(), "reelogram-mongodb-binaries") } });
+    }
+    databaseUri = configuredDatabase ? process.env.MONGODB_URL : database.getUri();
+    let ready = false;
+    server = spawn(process.execPath, [require.resolve("next/dist/bin/next"), "dev", "--hostname", "127.0.0.1", "--port", String(port)], {
+        env: { ...process.env, PATH: dirname(process.execPath) + ":" + process.env.PATH,
+            MONGODB_URL: databaseUri, NEXTAUTH_URL: base, NEXTAUTH_SECRET: randomBytes(32).toString("hex"),
+            E2E_DIST_DIR: ".next-e2e" },
+        stdio: ["ignore", "pipe", "pipe"],
+    });
+    serverExit = once(server, "exit");
+    server.stdout.on("data", (chunk) => { if (chunk.toString().includes("Ready in")) ready = true; });
+    // Drain output without printing sessions, signatures or service configuration.
+    server.stderr.resume();
+    const deadline = Date.now() + 60000;
+    while (!ready) {
+        assert.equal(server.exitCode, null, "Test app exited before becoming ready");
+        assert.ok(Date.now() < deadline, "Test app startup timed out");
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    console.log(`${configuredDatabase ? "Configured MongoDB" : "Disposable MongoDB"} and isolated Next.js server ready.`);
+
+    await request("/register");
+    await request("/login");
+    await request("/api/imagekit-auth", { anonymous: true, expected: 401 });
+    registrationAttempted = true;
+    const attempts = await Promise.all([email, email.toUpperCase()].map((address) =>
+        fetch(base + "/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: address, password }), signal: AbortSignal.timeout(30000) })));
+    assert.deepEqual(attempts.map((response) => response.status).sort(), [201, 409], "Concurrent registration must create exactly one account");
+    checks += 2;
+    await request("/api/auth/register", { data: { email: email.toUpperCase(), password }, expected: 409 });
+    const mongoose = (await import("mongoose")).default;
+    const connection = await mongoose.createConnection(databaseUri, { serverSelectionTimeoutMS: 10000 }).asPromise();
+    try {
+        const stored = await connection.collection("users").findOne({ email });
+        assert.equal(await connection.collection("users").countDocuments({ email }), 1);
+        assert.ok(stored, "Registration must persist a user");
+        assert.notEqual(stored.password, password, "Password must not be stored in plain text");
+        const bcrypt = (await import("bcryptjs")).default;
+        assert.ok(await bcrypt.compare(password, stored.password), "Stored password hash must verify");
+    } finally {
+        await connection.close();
+    }
+    await signIn({ email, password: "wrong-password" }, 401);
+    assert.deepEqual(await (await request("/api/auth/session")).json(), {});
+    await signIn({ email: email.toUpperCase(), password });
+    const session = await (await request("/api/auth/session")).json();
+    assert.equal(session.user.email, email);
+    assert.ok(session.user.id);
+    console.log("Registration, duplicate email, hashing, wrong password and session checks passed.");
+
+    if (liveUploads) {
+        for (const fixture of fixtures) {
+            const authResponse = await request("/api/imagekit-auth");
+            assert.match(authResponse.headers.get("cache-control"), /no-store/);
+            const auth = await authResponse.json();
+            assert.ok(auth.expire > Date.now() / 1000);
+            const form = new FormData();
+            form.set("file", new Blob([fixture.bytes], { type: fixture.type }), fixture.name);
+            form.set("fileName", `e2e-${runId}-${fixture.name}`);
+            form.set("folder", fixture.folder);
+            form.set("publicKey", process.env.NEXT_PUBLIC_PUBLIC_KEY);
+            for (const key of ["token", "expire", "signature"]) form.set(key, String(auth[key]));
+            const upload = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+                method: "POST", body: form, signal: AbortSignal.timeout(60000),
+            });
+            const result = await upload.json();
+            if (result.fileId) uploaded.push(result.fileId);
+            assert.equal(upload.status, 200, `ImageKit ${fixture.type} upload HTTP status`);
+            assert.ok(result.fileId);
+            assert.ok(result.name.startsWith(`e2e-${runId}-`));
+            const download = await fetch(result.url, { signal: AbortSignal.timeout(30000) });
+            assert.equal(download.status, 200, "Uploaded file must be retrievable");
+            assert.equal((await download.arrayBuffer()).byteLength, fixture.bytes.length);
+            checks += 3;
+            console.log(`Live ImageKit ${fixture.type} upload and retrieval passed.`);
+        }
+    } else {
+        console.log("Live ImageKit uploads skipped. Enable explicitly with: npm run test:e2e -- --imagekit");
+    }
+
+    const { csrfToken } = await (await request("/api/auth/csrf")).json();
+    await request("/api/auth/signout", { form: { csrfToken, json: "true" } });
+    assert.deepEqual(await (await request("/api/auth/session")).json(), {});
+    await request("/api/imagekit-auth", { expected: 401 });
+    if (process.argv.includes("--hold")) {
+        console.log(`Browser test server: ${base} (runner PID ${process.pid}). Send SIGINT to finish and clean up.`);
+        await once(process, "SIGINT");
+    }
+    if (!configuredDatabase) {
+        await database.stop();
+        const failure = await signIn({ email, password }, 401);
+        const { url } = await failure.json();
+        assert.equal(new URL(url).searchParams.get("error"), "Sign-in is temporarily unavailable. Please try again later.");
+        await request("/api/auth/register", { data: { email: `offline-${email}`, password }, expected: 503 });
+        console.log("Database outage returns controlled errors without exposing connection details.");
+    }
+    console.log(`PASS: ${checks} end-to-end checks, including logout and upload access control.`);
+} catch (error) {
+    console.error("E2E failed:", error.message);
+    process.exitCode = 1;
+} finally {
+    if (uploaded.length) {
+        const imagekit = new ImageKit({ publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY,
+            privateKey: process.env.PRIVATE_KEY, urlEndpoint: process.env.NEXT_PUBLIC_URL_ENDPOINT });
+        for (const fileId of uploaded) {
+            try {
+                await imagekit.deleteFile(fileId);
+                console.log("Deleted test upload.");
+            } catch {
+                console.error("Could not delete test upload:", fileId);
+                process.exitCode = 1;
+            }
+        }
+    }
+    if (server && server.exitCode === null) {
+        server.kill("SIGTERM");
+        const timer = setTimeout(() => server.kill("SIGKILL"), 5000);
+        await serverExit;
+        clearTimeout(timer);
+    }
+    if (database) await database.stop();
+    if (configuredDatabase && registrationAttempted) {
+        let connection;
+        try {
+            const mongoose = (await import("mongoose")).default;
+            connection = await mongoose.createConnection(databaseUri, { serverSelectionTimeoutMS: 10000 }).asPromise();
+            await connection.collection("users").deleteMany({ email });
+            assert.equal(await connection.collection("users").countDocuments({ email }), 0);
+            console.log("Deleted this run's test account from the configured database.");
+        } catch {
+            console.error("Could not clean up test account:", email);
+            process.exitCode = 1;
+        } finally {
+            if (connection) await connection.close();
+        }
+    }
+    await rm(".e2e.tsconfig.json", { force: true });
+}
