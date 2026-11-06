@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import {AuthRequestError,assertSameOrigin} from "../security/request.ts";
-export {AuthRequestError,assertSameOrigin} from "../security/request.ts";
+import { rateLimitResponse } from "../security/rate-limit.ts";
+import { AuthRequestError, assertSameOrigin } from "../security/request.ts";
+export { AuthRequestError, assertSameOrigin } from "../security/request.ts";
 export async function readAuthJson(
   request: Request,
 ): Promise<Record<string, unknown>> {
   if (
     !request.headers
       .get("content-type")
-      ?.split(";")[0].trim().toLowerCase()
+      ?.split(";")[0]
+      .trim()
+      .toLowerCase()
       .match(/^application\/json$/)
   )
     throw new AuthRequestError("Use a JSON request.", 415);
@@ -51,14 +54,11 @@ export function authFailure(
       { error: error.message },
       { status: error.status, headers: authHeaders },
     );
-  if (error && typeof error === "object" && "retryAfter" in error)
-    return NextResponse.json(
-      { error: "Too many attempts. Please wait before trying again." },
-      {
-        status: 429,
-        headers: { ...authHeaders, "Retry-After": String(error.retryAfter) },
-      },
-    );
+  const protection = rateLimitResponse(error);
+  if (protection) {
+    protection.headers.set("Referrer-Policy", "no-referrer");
+    return protection;
+  }
   console.error(
     "Account request failed",
     error instanceof Error ? error.name : "Service error",

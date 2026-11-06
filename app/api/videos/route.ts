@@ -277,6 +277,8 @@ export async function POST(req: Request) {
           });
           return NextResponse.json(presented, { status: 201, headers });
         } catch (error) {
+          const protection = rateLimitResponse(error);
+          if (protection) return protection;
           if (
             error &&
             typeof error === "object" &&
@@ -305,6 +307,8 @@ export async function POST(req: Request) {
         { error: "Media files are busy; retry the request" },
         { status: 409 },
       );
+    const protection = rateLimitResponse(error);
+    if (protection) return protection;
     return NextResponse.json(
       { error: "Video saving is temporarily unavailable" },
       { status: 503 },

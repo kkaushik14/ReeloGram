@@ -25,6 +25,7 @@
     "test:seo": "node scripts/test-seo.mjs",
     "test:redis": "node --experimental-strip-types scripts/test-redis.mjs",
     "test:redis-routes": "node --experimental-strip-types scripts/test-redis-routes.mjs",
+    "test:redis-outage": "node --experimental-strip-types scripts/test-redis-routes.mjs --faults",
     "cache:invalidate": "node --experimental-strip-types scripts/invalidate-public-cache.mjs"
   },
   "dependencies": {

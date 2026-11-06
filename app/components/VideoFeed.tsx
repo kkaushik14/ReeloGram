@@ -1,5 +1,6 @@
 "use client";
 import FlashMessage from "./FlashNotification";
+import { serviceMessage } from "@/lib/http/service-message";
 /* eslint-disable @next/next/no-img-element */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
@@ -204,7 +205,16 @@ export default function VideoFeed({
           cache: "no-store",
           signal: request.signal,
         });
-        if (!response.ok) throw Error();
+        if (version !== requestVersion.current || request.signal.aborted) return;
+        if (!response.ok) {
+          setError(
+            serviceMessage(
+              response.status,
+              "We couldn’t load the videos. Please try again.",
+            ),
+          );
+          return;
+        }
         const data = await response.json();
         if (version !== requestVersion.current) return;
         setVideos((prev) =>
@@ -220,7 +230,7 @@ export default function VideoFeed({
         setCursor(data.nextCursor);
         setTotal(data.total);
       } catch {
-        if (!request.signal.aborted)
+        if (version === requestVersion.current && !request.signal.aborted)
           setError("We couldn’t load the videos. Please try again.");
       } finally {
         if (version === requestVersion.current && !request.signal.aborted)
@@ -549,7 +559,11 @@ export default function VideoFeed({
                     Clear filters
                   </button>
                 ) : (
-                  <Link prefetch={false} href="/upload" className="button primary">
+                  <Link
+                    prefetch={false}
+                    href="/upload"
+                    className="button primary"
+                  >
                     <Plus size={17} />
                     Share a video
                   </Link>
@@ -605,9 +619,17 @@ export default function VideoFeed({
                     </button>
                     <div className="video-info">
                       <h3>
-                        <Link href={`/videos/${video.id}`} prefetch={false}
+                        <Link
+                          href={`/videos/${video.id}`}
+                          prefetch={false}
                           onClick={(event) => {
-                            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                            if (
+                              event.metaKey ||
+                              event.ctrlKey ||
+                              event.shiftKey ||
+                              event.altKey
+                            )
+                              return;
                             event.preventDefault();
                             setCopied(false);
                             setShareError("");

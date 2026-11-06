@@ -5,6 +5,33 @@ import { publicFeedCacheKey } from "../lib/cache/feed.ts";
 import { redisRateLimit } from "../lib/security/redis-rate-limit.ts";
 import { withPublicDataMutation } from "../lib/cache/public-data.ts";
 import { parseFeedQuery } from "../lib/video-input.ts";
+import {
+  RateLimitError,
+  rateLimitResponse,
+} from "../lib/security/rate-limit.ts";
+import {
+  SERVICE_UNAVAILABLE_MESSAGE,
+  serviceMessage,
+} from "../lib/http/service-message.ts";
+
+test("outages and user quotas have distinct safe responses and client messages", async () => {
+  const outage = rateLimitResponse(new RedisUnavailableError());
+  assert.equal(outage.status, 503);
+  assert.equal(outage.headers.get("Retry-After"), "30");
+  assert.equal(outage.headers.get("Cache-Control"), "no-store");
+  assert.deepEqual(await outage.json(), {
+    error: SERVICE_UNAVAILABLE_MESSAGE,
+    code: "SERVICE_UNAVAILABLE",
+  });
+  const limited = rateLimitResponse(new RateLimitError(17));
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get("Retry-After"), "17");
+  assert.equal((await limited.json()).code, "RATE_LIMITED");
+  assert.equal(serviceMessage(503, "fallback"), SERVICE_UNAVAILABLE_MESSAGE);
+  assert.match(serviceMessage(429, "fallback"), /Too many requests/);
+  assert.equal(serviceMessage(500, "fallback"), "fallback");
+  assert.equal(rateLimitResponse(new Error("private provider detail")), null);
+});
 
 const configuration = {
   REELOGRAM_KV_REST_API_URL: "https://example.upstash.io",

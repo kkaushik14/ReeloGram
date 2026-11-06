@@ -2,7 +2,11 @@ import { createHmac } from "node:crypto";
 import type { Connection } from "mongoose";
 import { connectToDatabase } from "../db.ts";
 import { clientAddress } from "./client-address.ts";
-import { redisClient } from "../redis/client.ts";
+import { redisClient, RedisUnavailableError } from "../redis/client.ts";
+import {
+  SERVICE_UNAVAILABLE_MESSAGE,
+  RATE_LIMIT_MESSAGE,
+} from "../http/service-message.ts";
 import { redisRateLimit } from "./redis-rate-limit.ts";
 
 export class RateLimitError extends Error {
@@ -130,9 +134,17 @@ export const limitRequest = (
 ) => enforceRateLimit(action, REQUEST_LIMITS[action], subject, headers);
 
 export function rateLimitResponse(error: unknown) {
+  if (error instanceof RedisUnavailableError)
+    return Response.json(
+      { error: SERVICE_UNAVAILABLE_MESSAGE, code: "SERVICE_UNAVAILABLE" },
+      {
+        status: 503,
+        headers: { "Retry-After": "30", "Cache-Control": "no-store" },
+      },
+    );
   if (!(error instanceof RateLimitError)) return null;
   return Response.json(
-    { error: "Too many requests. Please wait before trying again." },
+    { error: RATE_LIMIT_MESSAGE, code: "RATE_LIMITED" },
     {
       status: 429,
       headers: {

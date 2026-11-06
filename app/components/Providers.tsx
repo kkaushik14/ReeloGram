@@ -3,6 +3,7 @@
 import { ImageKitProvider } from "imagekitio-next";
 import { SessionProvider } from "next-auth/react";
 import { FlashProvider } from "./FlashNotification";
+import { serviceMessage } from "@/lib/http/service-message";
 
 const urlEndpoint = process.env.NEXT_PUBLIC_REELOGRAM_URL_ENDPOINT;
 const publicKey = process.env.NEXT_PUBLIC_REELOGRAM_PUBLIC_KEY;
@@ -14,7 +15,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       throw new Error(
         response.status === 401
           ? "Please sign in before uploading."
-          : "Upload authentication is unavailable.",
+          : serviceMessage(
+              response.status,
+              "Upload authentication is unavailable.",
+            ),
       );
     }
     const { signature, expire, token } = await response.json();
