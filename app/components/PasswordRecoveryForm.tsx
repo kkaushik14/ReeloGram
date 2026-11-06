@@ -14,6 +14,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { passwordError, validResetToken } from "@/lib/auth/validation";
+import { PASSWORD_POLICY } from "@/lib/auth/password-policy";
 export default function PasswordRecoveryForm({
   reset = false,
 }: {
@@ -169,7 +170,8 @@ export default function PasswordRecoveryForm({
                         type={visible ? "text" : "password"}
                         autoComplete="new-password"
                         required
-                        minLength={8}
+                        minLength={PASSWORD_POLICY.minimumCharacters}
+                        aria-describedby="password-help"
                         disabled={pending}
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
@@ -184,7 +186,7 @@ export default function PasswordRecoveryForm({
                         {visible ? <EyeOff size={19} /> : <Eye size={19} />}
                       </button>
                     </span>
-                    <small>At least 8 characters.</small>
+                    <small id="password-help">{PASSWORD_POLICY.help}</small>
                   </label>
                   <label>
                     Confirm password

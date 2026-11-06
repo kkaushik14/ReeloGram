@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const body = await readAuthJson(request);
     const email = parseEmail(body.email);
     const profile = parseProfile(body);
-    const problem = passwordError(body.password);
+    const problem = passwordError(body.password, email);
     if (!email) throw new AuthRequestError("Enter a valid email address.");
     if (!profile)
       throw new AuthRequestError("Enter your name and a valid date of birth.");

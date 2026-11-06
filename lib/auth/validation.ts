@@ -23,14 +23,7 @@ export function parseEmail(value: unknown) {
     return null;
   return email;
 }
-export function passwordError(value: unknown) {
-  if (typeof value !== "string" || value.length < 8)
-    return "Use at least 8 characters for your password.";
-  if (new TextEncoder().encode(value).length > 72)
-    return "Use a password of no more than 72 bytes.";
-  if (!value.trim()) return "Choose a password that contains more than spaces.";
-  return null;
-}
+export { passwordError } from "./password-policy.ts";
 export function parseProfile(value: unknown, now = new Date()) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const { name, dateOfBirth } = value as Record<string, unknown>;

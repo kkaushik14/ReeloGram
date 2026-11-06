@@ -1,4 +1,7 @@
 {
   "regions": ["bom1"],
-  "crons": [{ "path": "/api/cron/email-blocklist", "schedule": "30 22 * * *" }]
+  "crons": [
+    { "path": "/api/cron/email-blocklist", "schedule": "30 22 * * *" },
+    { "path": "/api/uploads/maintenance", "schedule": "45 22 * * *" }
+  ]
 }

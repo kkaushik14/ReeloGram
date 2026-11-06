@@ -1,4 +1,5 @@
 "use client";
+import { UPLOAD_PUBLISHED_EVENT } from "@/lib/uploads/events";
 import FlashMessage from "./FlashNotification";
 import { serviceMessage } from "@/lib/http/service-message";
 /* eslint-disable @next/next/no-img-element */
@@ -117,9 +118,11 @@ function Modal({
 export default function VideoFeed({
   mine = false,
   reels = false,
+  uploadActivity,
 }: {
   mine?: boolean;
   reels?: boolean;
+  uploadActivity?: React.ReactNode;
 }) {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -253,6 +256,12 @@ export default function VideoFeed({
     return () => controller.current?.abort();
   }, [ready, waiting, mine, owner, load]);
   useEffect(() => {
+    if (!mine || !ready || waiting || !owner) return;
+    const refresh = () => { void load(); };
+    window.addEventListener(UPLOAD_PUBLISHED_EVENT, refresh);
+    return () => window.removeEventListener(UPLOAD_PUBLISHED_EVENT, refresh);
+  }, [ready, waiting, mine, owner, load]);
+  useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("video");
     if (id)
       fetch(`/api/videos/${encodeURIComponent(id)}`)
@@ -361,6 +370,7 @@ export default function VideoFeed({
       {!mine && !reels && (
         <ResourceHero suspended={!!watch || !!edit || !!remove} />
       )}
+      {mine && uploadActivity}
       <FlashMessage message={notice} variant="success" />
       <section aria-label="Videos" aria-busy={loading}>
         <div className="feed-toolbar">

@@ -11,6 +11,7 @@ import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import { Aperture, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { parseProfile, parseEmail, passwordError } from "@/lib/auth/validation";
+import { PASSWORD_POLICY } from "@/lib/auth/password-policy";
 import { isUnder13 } from "@/lib/account/age";
 import ParentFields from "./ParentFields";
 import { useFlash } from "./FlashNotification";
@@ -115,7 +116,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
         setDob(profile.dateOfBirth.toISOString().slice(0, 10));
         setStep("password");
       } else if (step === "password") {
-        const problem = passwordError(password);
+        const problem = passwordError(password, email);
         if (problem) throw Error(problem);
         if (password !== confirmation)
           throw Error("Your passwords don’t match.");
@@ -304,11 +305,18 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                     }
                     placeholder={
                       step === "password"
-                        ? "At least 8 characters"
+                        ? "At least 15 characters"
                         : "Enter your password"
                     }
                     required
-                    minLength={step === "password" ? 8 : undefined}
+                    minLength={
+                      step === "password"
+                        ? PASSWORD_POLICY.minimumCharacters
+                        : undefined
+                    }
+                    aria-describedby={
+                      step === "password" ? "password-help" : undefined
+                    }
                     disabled={pending}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -323,6 +331,9 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                     {visible ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
                 </span>
+                {step === "password" && (
+                  <small id="password-help">{PASSWORD_POLICY.help}</small>
+                )}
               </label>
               {step === "password" && (
                 <label>

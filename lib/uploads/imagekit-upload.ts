@@ -11,10 +11,18 @@ export async function uploadToImageKit(
     throw new Error(
       "Uploads are temporarily unavailable. Please try again later.",
     );
-  const response = await fetch(`/api/imagekit-auth?kind=${kind}`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(UPLOAD_POLICY.authTimeoutMs),
-  });
+  let response: Response;
+  const controller = new AbortController();
+  const authTimer = setTimeout(() => controller.abort(), UPLOAD_POLICY.authTimeoutMs);
+  try {
+    response = await fetch(`/api/imagekit-auth?kind=${kind}`, {
+      cache: "no-store", signal: controller.signal,
+    });
+  } catch {
+    throw new Error(controller.signal.aborted
+      ? "Preparing your secure upload took too long. Your form is kept; please try again."
+      : "We couldn’t prepare your secure upload. Your form is kept; please try again.");
+  } finally { clearTimeout(authTimer); }
   if (!response.ok)
     throw new Error(
       response.status === 429

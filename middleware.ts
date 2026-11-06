@@ -31,6 +31,11 @@ export async function middleware(req: NextRequest) {
     return response;
   };
   // These exact routes authenticate their own signed server-to-server requests.
+  if (
+    pathname === "/api/uploads/process" ||
+    pathname === "/api/uploads/maintenance"
+  )
+    return finish(NextResponse.next());
   // Customer cookies never authorize administration; no generic /api/admin bypass.
   if (
     /^\/api\/admin\/v1\/[^/]+$/.test(pathname) ||

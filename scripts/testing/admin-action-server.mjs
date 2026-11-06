@@ -9,7 +9,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
 const require = createRequire(import.meta.url);
-export async function actionServer() {
+export async function actionServer({ port: requestedPort = 0 } = {}) {
   const database = await MongoMemoryReplSet.create({
     replSet: { count: 1, dbName: "admin_actions_test" },
     binary: { downloadDir: join(tmpdir(), "reelogram-mongodb-binaries") },
@@ -53,7 +53,7 @@ export async function actionServer() {
   const start = async (overrides = {}, fault = false) => {
     await stop();
     const listener = createServer();
-    listener.listen(0, "127.0.0.1");
+    listener.listen(requestedPort, "127.0.0.1");
     await once(listener, "listening");
     const port = listener.address().port;
     await new Promise((r) => listener.close(r));

@@ -26,6 +26,8 @@ export const REQUEST_LIMITS = {
   feed: [300, 180, 60],
   showcase: [120, 90, 60],
   upload: [20, 80, 600],
+  uploadPart: [120, 400, 600],
+  uploadStatus: [60, 180, 60],
   publish: [12, 60, 3600],
   mutation: [80, 240, 3600],
   profileRead: [90, 300, 300],

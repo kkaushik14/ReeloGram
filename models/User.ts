@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, models } from "mongoose";
 import bcrypt from "bcryptjs";
+import { passwordError } from "../lib/auth/password-policy.ts";
 
 export interface InterFUser {
   suspended?: boolean;
@@ -89,6 +90,8 @@ const userSchema = new Schema<InterFUser>(
 // Password writes through save() are always hashed before persistence.
 userSchema.pre("save", async function (next) {
   if (this.isModified("password")) {
+    const problem = passwordError(this.password, this.email);
+    if (problem) throw new Error(problem);
     this.password = await bcrypt.hash(this.password, 10);
   }
   next();

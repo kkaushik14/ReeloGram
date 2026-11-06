@@ -33,6 +33,8 @@ export async function POST(request: Request) {
       throw new AuthRequestError(
         "This reset link is invalid or has expired. Request a new link.",
       );
+    const identityProblem = passwordError(body.password, user.email);
+    if (identityProblem) throw new AuthRequestError(identityProblem);
     if (await bcrypt.compare(body.password as string, user.password))
       throw new AuthRequestError(
         "Choose a different password from the one you already use.",
