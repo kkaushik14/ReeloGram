@@ -17,7 +17,7 @@ export default function SiteFooter() {
             <strong className="brand-wordmark">ReeloGram.</strong>
           </Link>
           <p>
-            Good moments deserve
+            Good moments deserve{" "}
             <br />a place to be seen.
           </p>
           <Link prefetch={false} className="footer-cta" href="/upload">
