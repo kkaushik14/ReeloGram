@@ -33,6 +33,7 @@ import UploaderBadge, { type PublicUploader } from "./UploaderBadge";
 import type { VideoSource } from "@/lib/video-sources";
 import { FeedSkeleton, ReelSkeleton } from "./LoadingState";
 import ReelStream from "./ReelStream";
+import { usePageScrollLock } from "./usePageScrollLock";
 export type FeedVideo = {
   id: string;
   title: string;
@@ -64,6 +65,7 @@ function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  usePageScrollLock(true);
   useEffect(() => {
     const dialog = ref.current;
     const trigger = document.activeElement as HTMLElement | null;

@@ -6,6 +6,7 @@ import { AccountSkeleton } from "./LoadingState";
 import SiteFooter from "./SiteFooter";
 import UploaderBadge from "./UploaderBadge";
 import { useBrowserPreferences } from "./useBrowserPreferences";
+import { usePageScrollLock } from "./usePageScrollLock";
 import AccountLink from "./AccountLink";
 import { signOut, useSession } from "next-auth/react";
 import {
@@ -78,14 +79,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       window.removeEventListener("keydown", escape);
     };
   }, [menu]);
-  useEffect(() => {
-    if (!menu || !mobile) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [menu, mobile]);
+  usePageScrollLock(menu && mobile);
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem("reelogram-sidebar") === "collapsed");

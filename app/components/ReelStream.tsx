@@ -24,6 +24,7 @@ import {
 import VideoCredit from "./VideoCredit";
 import AdaptiveVideo from "./AdaptiveVideo";
 import { useBrowserPreferences } from "./useBrowserPreferences";
+import { usePageScrollLock } from "./usePageScrollLock";
 import UploaderBadge from "./UploaderBadge";
 import type { FeedVideo } from "./VideoFeed";
 
@@ -61,6 +62,7 @@ export default function ReelStream({
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  usePageScrollLock(expanded);
   const dialog = useRef<HTMLDialogElement>(null);
   const expandButton = useRef<HTMLButtonElement>(null);
   const wasExpanded = useRef(false);
@@ -164,11 +166,9 @@ export default function ReelStream({
     const element = dialog.current;
     if (!element) return;
     const trigger = document.activeElement as HTMLElement | null;
-    const overflow = document.body.style.overflow;
     if (element.open) element.close();
     if (expanded) {
       element.showModal();
-      document.body.style.overflow = "hidden";
       closeButton.current?.focus();
     } else {
       element.show();
@@ -187,7 +187,6 @@ export default function ReelStream({
       void player.current?.play().catch(() => setBlocked(true));
     return () => {
       element.close();
-      if (expanded) document.body.style.overflow = overflow;
     };
     // Switching presentation keeps the existing player, active item, and playback state.
     // eslint-disable-next-line react-hooks/exhaustive-deps

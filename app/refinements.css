@@ -66,6 +66,8 @@
 :root:not([data-theme="dark"]) .showcase-explore{color:var(--color-support-text)}
 :root:not([data-theme="dark"]) .auth-only{background:radial-gradient(ellipse at 10% 25%,var(--color-accent-subtle),transparent 50%),radial-gradient(ellipse at 88% 75%,var(--color-support-subtle),transparent 48%),var(--color-bg)}
 
+dialog:modal{overscroll-behavior:contain}
+.reels-container.is-expanded .reel-details{overscroll-behavior:contain}
 dialog.reels-container{color:inherit}
 dialog.reels-container:not(.is-expanded){display:block;position:static;inset:auto;width:100%;max-width:none;max-height:none;border:0;padding:0;margin:0;background:transparent;overflow:visible}
 .reels-container.is-expanded{position:fixed;inset:0;margin:auto;width:min(1280px,92vw);height:min(900px,90dvh);max-height:90dvh;display:flex;flex-direction:column;border:1px solid rgb(255 255 255 / 18%);border-radius:24px;padding:22px 28px;background:#28323F;color:#F5F2F6;overflow:hidden;box-shadow:0 30px 100px rgb(5 10 20 / 45%);isolation:isolate;--color-text:#F5F2F6;--color-text-secondary:#DDD9E3;--color-text-muted:#C3BDCC;--color-surface:#35404F;--color-border:#657184;--color-border-strong:#8E99A9;--color-accent:#D8BDE2;--color-focus:#E3CAE9;--color-support-text:#CEE8E3;--color-support:#A8D2CB;--color-support-subtle:#354F50;color-scheme:dark}
