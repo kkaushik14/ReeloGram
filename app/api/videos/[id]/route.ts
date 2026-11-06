@@ -13,7 +13,12 @@ import Video from "@/models/Video";
 import { PUBLIC_VIDEO_FILTER } from "@/lib/seo/config";
 import User from "@/models/User";
 import { limitRequest, rateLimitResponse } from "@/lib/security/rate-limit";
-import { readAuthJson, assertSameOrigin, AuthRequestError } from "@/lib/auth/request";
+import {
+  readAuthJson,
+  assertSameOrigin,
+  AuthRequestError,
+} from "@/lib/auth/request";
+import { withPublicDataMutation } from "@/lib/cache/public-data";
 
 type Context = { params: Promise<{ id: string }> };
 const headers = { "Cache-Control": "no-store" };
@@ -25,7 +30,7 @@ export async function GET(req: Request, context: Context) {
   if (!/^[a-f0-9]{24}$/i.test(id))
     return errorResponse("Invalid video ID", 400);
   try {
-    await limitRequest("feed",null,req.headers);
+    await limitRequest("feed", null, req.headers);
     await connectToDatabase();
     const video = await Video.findOne({
       _id: id,
@@ -34,7 +39,10 @@ export async function GET(req: Request, context: Context) {
     if (!video) return errorResponse("Video not found", 404);
     return NextResponse.json((await presentVideos([video]))[0], { headers });
   } catch (error) {
-    return rateLimitResponse(error) ?? errorResponse("Video is temporarily unavailable", 503);
+    return (
+      rateLimitResponse(error) ??
+      errorResponse("Video is temporarily unavailable", 503)
+    );
   }
 }
 
@@ -43,7 +51,7 @@ async function authorize(context: Context, req: Request) {
   if (!session?.user?.id)
     return { error: errorResponse("Authentication required", 401) };
   assertSameOrigin(req);
-  await limitRequest("mutation",session.user.id,req.headers);
+  await limitRequest("mutation", session.user.id, req.headers);
   const { id } = await context.params;
   if (!/^[a-f0-9]{24}$/i.test(id))
     return { error: errorResponse("Invalid video ID", 400) };
@@ -59,13 +67,14 @@ async function authorize(context: Context, req: Request) {
 
 export async function PATCH(req: Request, context: Context) {
   try {
-    const result = await authorize(context,req);
+    const result = await authorize(context, req);
     if (result.error) return result.error;
     let body: unknown;
     try {
       body = await readAuthJson(req);
     } catch (error) {
-      if (error instanceof AuthRequestError) return errorResponse(error.message,error.status);
+      if (error instanceof AuthRequestError)
+        return errorResponse(error.message, error.status);
       throw error;
     }
     const update = parseVideoUpdate(body);
@@ -74,21 +83,24 @@ export async function PATCH(req: Request, context: Context) {
         "Only valid title, description and controls fields may be edited",
         400,
       );
-    const video = await Video.findOneAndUpdate(
-      {
-        _id: result.id,
-        uploadedBy: result.owner,
-        deletionPending: { $ne: true },
-      },
-      { $set: update },
-      { new: true, runValidators: true },
+    const video = await withPublicDataMutation(async () =>
+      Video.findOneAndUpdate(
+        {
+          _id: result.id,
+          uploadedBy: result.owner,
+          deletionPending: { $ne: true },
+        },
+        { $set: update },
+        { new: true, runValidators: true, maxTimeMS: 10000 },
+      ),
     );
     if (!video) return errorResponse("Video deletion is in progress", 409);
     return NextResponse.json((await presentVideos([video]))[0], { headers });
   } catch (error) {
     const limited = rateLimitResponse(error);
     if (limited) return limited;
-    if (error instanceof AuthRequestError) return errorResponse(error.message,error.status);
+    if (error instanceof AuthRequestError)
+      return errorResponse(error.message, error.status);
     console.error(
       "Video update failed",
       error instanceof Error ? error.name : "Unknown error",
@@ -99,16 +111,18 @@ export async function PATCH(req: Request, context: Context) {
 
 export async function DELETE(req: Request, context: Context) {
   try {
-    const result = await authorize(context,req);
+    const result = await authorize(context, req);
     if (result.error) return result.error;
     const { fileId, thumbnailFileId } = result.video;
     if (!fileId || !thumbnailFileId)
       return errorResponse("Video is missing tracked ImageKit file IDs", 409);
     return await withMediaLocks([fileId, thumbnailFileId], async () => {
-      const video = await Video.findOneAndUpdate(
-        { _id: result.id, uploadedBy: result.owner },
-        { $set: { deletionPending: true } },
-        { new: true },
+      const video = await withPublicDataMutation(async () =>
+        Video.findOneAndUpdate(
+          { _id: result.id, uploadedBy: result.owner },
+          { $set: { deletionPending: true } },
+          { new: true, maxTimeMS: 10000 },
+        ),
       );
       if (!video) return errorResponse("Video not found", 404);
       for (const assetId of new Set<string>([fileId, thumbnailFileId])) {
@@ -116,20 +130,26 @@ export async function DELETE(req: Request, context: Context) {
           _id: { $ne: result.id },
           $or: [{ fileId: assetId }, { thumbnailFileId: assetId }],
         });
-        const profile = await User.exists({imageFileId:assetId});
+        const profile = await User.exists({ imageFileId: assetId });
         if (!shared && !profile) await deleteMediaFile(assetId);
       }
-      await Video.deleteOne({
-        _id: result.id,
-        uploadedBy: result.owner,
-        deletionPending: true,
-      });
+      await withPublicDataMutation(async () =>
+        Video.deleteOne(
+          {
+            _id: result.id,
+            uploadedBy: result.owner,
+            deletionPending: true,
+          },
+          { maxTimeMS: 10000 },
+        ),
+      );
       return new NextResponse(null, { status: 204, headers });
     });
   } catch (error) {
     const limited = rateLimitResponse(error);
     if (limited) return limited;
-    if (error instanceof AuthRequestError) return errorResponse(error.message,error.status);
+    if (error instanceof AuthRequestError)
+      return errorResponse(error.message, error.status);
     if (error instanceof MediaBusyError)
       return errorResponse("Media files are busy; retry the request", 409);
     console.error(

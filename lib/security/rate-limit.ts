@@ -2,6 +2,8 @@ import { createHmac } from "node:crypto";
 import type { Connection } from "mongoose";
 import { connectToDatabase } from "../db.ts";
 import { clientAddress } from "./client-address.ts";
+import { redisClient } from "../redis/client.ts";
+import { redisRateLimit } from "./redis-rate-limit.ts";
 
 export class RateLimitError extends Error {
   retryAfter: number;
@@ -38,6 +40,29 @@ export async function enforceRateLimit(
 ) {
   const secret = process.env.REELOGRAM_NEXTAUTH_SECRET;
   if (!secret) throw Error("Request protection is not configured");
+  const redis = redisClient();
+  if (redis) {
+    const entries = [
+      ...(subject
+        ? [{ kind: "account", value: subject, maximum: policy[0] }]
+        : []),
+      { kind: "network", value: clientAddress(headers), maximum: policy[1] },
+    ];
+    const retryAfter = await redisRateLimit(
+      redis,
+      entries.map((entry) => ({
+        id: createHmac("sha256", secret)
+          .update(`${action}:${entry.kind}:${entry.value}`)
+          .digest("hex"),
+        maximum: entry.maximum,
+      })),
+      policy[2],
+    );
+    if (retryAfter > 0) throw new RateLimitError(retryAfter);
+    return;
+  }
+  // Only unconfigured/explicitly disabled installations use MongoDB. An Upstash
+  // outage must not silently reset counters or permit otherwise blocked requests.
   const connection = await connectToDatabase();
   const buckets = connection.collection<{
     _id: string;

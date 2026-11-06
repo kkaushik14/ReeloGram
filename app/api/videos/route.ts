@@ -1,5 +1,7 @@
 import { ownsUpload } from "@/lib/uploads/authorization";
 import { namedUpload } from "@/lib/uploads/naming";
+import { readFeed } from "@/lib/cache/feed";
+import { withPublicDataMutation } from "@/lib/cache/public-data";
 import { after, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import mongoose, { type FilterQuery } from "mongoose";
@@ -47,72 +49,74 @@ export async function GET(req: Request) {
     );
   try {
     await limitRequest("feed", mine ? session!.user.id : null, req.headers);
-    await connectToDatabase();
-    const direction = query.sort === "oldest" ? 1 : -1;
-    const comparison = direction === 1 ? "$gt" : "$lt";
-    const conditions: FilterQuery<InterFVideo>[] = [PUBLIC_VIDEO_FILTER];
-    if (mine) conditions.push({ uploadedBy: session!.user.id });
-    const providers: Record<string, string> = {
-      pexels: "Pexels",
-      pixabay: "Pixabay",
-      coverr: "Coverr",
-      mixkit: "Mixkit",
-    };
-    if (providers[query.source])
-      conditions.push({ "source.provider": providers[query.source] });
-    if (query.source === "community")
-      conditions.push({ source: { $exists: false } });
-    if (query.q) {
-      const escaped = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      conditions.push({
-        $or: [
-          { title: { $regex: escaped, $options: "i" } },
-          { description: { $regex: escaped, $options: "i" } },
-          { "source.creator": { $regex: escaped, $options: "i" } },
-        ],
-      });
-    }
-    if (query.period !== "any") {
-      const days =
-        query.period === "week" ? 7 : query.period === "month" ? 30 : 365;
-      conditions.push({
-        createdAt: { $gte: new Date(Date.now() - days * 86400000) },
-      });
-    }
-    const countFilter = { $and: [...conditions] };
-    if (query.cursor)
-      conditions.push({
-        $or: [
-          { createdAt: { [comparison]: query.cursor.createdAt } },
-          {
-            createdAt: query.cursor.createdAt,
-            _id: { [comparison]: new mongoose.Types.ObjectId(query.cursor.id) },
-          },
-        ],
-      });
-    const [records, total] = await Promise.all([
-      Video.find({ $and: conditions })
-        .sort({ createdAt: direction, _id: direction })
-        .limit(query.limit + 1)
-        .lean<InterFVideo[]>(),
-      Video.countDocuments(countFilter),
-    ]);
-    const page = records.slice(0, query.limit);
-    const last = page.at(-1);
-    const nextCursor =
-      records.length > query.limit && last
-        ? Buffer.from(
-            JSON.stringify({
-              id: last._id!.toString(),
-              createdAt: last.createdAt,
-              context: query.context,
-            }),
-          ).toString("base64url")
-        : null;
-    return NextResponse.json(
-      { videos: await presentVideos(page), nextCursor, total },
-      { headers },
-    );
+    const result = await readFeed(query, async () => {
+      await connectToDatabase();
+      const direction = query.sort === "oldest" ? 1 : -1;
+      const comparison = direction === 1 ? "$gt" : "$lt";
+      const conditions: FilterQuery<InterFVideo>[] = [PUBLIC_VIDEO_FILTER];
+      if (mine) conditions.push({ uploadedBy: session!.user.id });
+      const providers: Record<string, string> = {
+        pexels: "Pexels",
+        pixabay: "Pixabay",
+        coverr: "Coverr",
+        mixkit: "Mixkit",
+      };
+      if (providers[query.source])
+        conditions.push({ "source.provider": providers[query.source] });
+      if (query.source === "community")
+        conditions.push({ source: { $exists: false } });
+      if (query.q) {
+        const escaped = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        conditions.push({
+          $or: [
+            { title: { $regex: escaped, $options: "i" } },
+            { description: { $regex: escaped, $options: "i" } },
+            { "source.creator": { $regex: escaped, $options: "i" } },
+          ],
+        });
+      }
+      if (query.period !== "any") {
+        const days =
+          query.period === "week" ? 7 : query.period === "month" ? 30 : 365;
+        conditions.push({
+          createdAt: { $gte: new Date(Date.now() - days * 86400000) },
+        });
+      }
+      const countFilter = { $and: [...conditions] };
+      if (query.cursor)
+        conditions.push({
+          $or: [
+            { createdAt: { [comparison]: query.cursor.createdAt } },
+            {
+              createdAt: query.cursor.createdAt,
+              _id: {
+                [comparison]: new mongoose.Types.ObjectId(query.cursor.id),
+              },
+            },
+          ],
+        });
+      const [records, total] = await Promise.all([
+        Video.find({ $and: conditions })
+          .sort({ createdAt: direction, _id: direction })
+          .limit(query.limit + 1)
+          .lean<InterFVideo[]>(),
+        Video.countDocuments(countFilter),
+      ]);
+      const page = records.slice(0, query.limit);
+      const last = page.at(-1);
+      const nextCursor =
+        records.length > query.limit && last
+          ? Buffer.from(
+              JSON.stringify({
+                id: last._id!.toString(),
+                createdAt: last.createdAt,
+                context: query.context,
+              }),
+            ).toString("base64url")
+          : null;
+      return { videos: await presentVideos(page), nextCursor, total };
+    });
+    return NextResponse.json(result, { headers });
   } catch (error) {
     const limited = rateLimitResponse(error);
     if (limited) return limited;
@@ -232,19 +236,22 @@ export async function POST(req: Request) {
         try {
           await connectToDatabase();
           await Video.init();
-          const video = await Video.create({
-            ...input,
-            // New grants reserve the actual post ID in the signed filename.
-            // Legacy owned uploads still receive a normal generated ObjectId.
-            _id: namedUpload(videoFile.filePath, session.user.id, "video")
-              ?.videoId,
-            uploadedBy: session.user.id,
-            videoUrl,
-            thumbNailUrl: thumbnail.url,
-            transformatioon: {
-              width: videoFile.width || VIDEO_DIMENSION.width,
-              height: videoFile.height || VIDEO_DIMENSION.height,
-            },
+          const video = await withPublicDataMutation(async () => {
+            const document = new Video({
+              ...input,
+              // New grants reserve the actual post ID in the signed filename.
+              // Legacy owned uploads still receive a normal generated ObjectId.
+              _id: namedUpload(videoFile.filePath, session.user.id, "video")
+                ?.videoId,
+              uploadedBy: session.user.id,
+              videoUrl,
+              thumbNailUrl: thumbnail.url,
+              transformatioon: {
+                width: videoFile.width || VIDEO_DIMENSION.width,
+                height: videoFile.height || VIDEO_DIMENSION.height,
+              },
+            });
+            return document.save({ maxTimeMS: 10000 });
           });
           const presented = (await presentVideos([video]))[0];
           after(async () => {

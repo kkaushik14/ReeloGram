@@ -22,7 +22,10 @@
     "test:email": "node --experimental-strip-types scripts/test-email-service.mjs",
     "test:brevo": "node --experimental-strip-types scripts/test-brevo.mjs",
     "media:retry": "node --experimental-strip-types scripts/retry-avatar-cleanup.mjs",
-    "test:seo": "node scripts/test-seo.mjs"
+    "test:seo": "node scripts/test-seo.mjs",
+    "test:redis": "node --experimental-strip-types scripts/test-redis.mjs",
+    "test:redis-routes": "node --experimental-strip-types scripts/test-redis-routes.mjs",
+    "cache:invalidate": "node --experimental-strip-types scripts/invalidate-public-cache.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { withPublicDataMutation } from "@/lib/cache/public-data";
 import { authOptions } from "@/lib/auth-opt";
 import User, { type InterFUser } from "@/models/User";
 import { publicUploader } from "@/lib/public-uploader";
@@ -112,24 +113,26 @@ export async function PATCH(req: Request) {
     if (details.name !== undefined)
       missing.push({ $or: [{ name: null }, { name: /^\s*$/ }] });
     if (details.dateOfBirth !== undefined) missing.push({ dateOfBirth: null });
-    const user = await User.findOneAndUpdate(
-      { _id: session.user.id, $and: missing },
-      {
-        $set: {
-          ...details,
-          ...(parent && ownerConfirmation
-            ? {
-                parent: parent.record,
-                emailConfirmation: {
-                  ...ownerConfirmation.stored,
-                  parentEmail: parent.record.email,
-                },
-              }
-            : {}),
+    const user = await withPublicDataMutation(async () =>
+      User.findOneAndUpdate(
+        { _id: session.user.id, $and: missing },
+        {
+          $set: {
+            ...details,
+            ...(parent && ownerConfirmation
+              ? {
+                  parent: parent.record,
+                  emailConfirmation: {
+                    ...ownerConfirmation.stored,
+                    parentEmail: parent.record.email,
+                  },
+                }
+              : {}),
+          },
         },
-      },
-      { new: true, runValidators: true },
-    ).select("name email image +dateOfBirth +emailVerifiedAt +parent");
+        { new: true, runValidators: true, maxTimeMS: 10000 },
+      ).select("name email image +dateOfBirth +emailVerifiedAt +parent"),
+    );
     if (!user) {
       const exists = await User.exists({ _id: session.user.id });
       return Response.json(

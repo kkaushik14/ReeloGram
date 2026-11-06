@@ -209,6 +209,7 @@ try {
       env: {
         ...process.env,
         ...mail.env,
+        REELOGRAM_REDIS_DISABLED: "1",
         REELOGRAM_APP_URL: base,
         PATH: dirname(process.execPath) + ":" + process.env.PATH,
         REELOGRAM_MONGODB_URL: databaseUri,

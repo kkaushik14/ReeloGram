@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { getServerSession } from "next-auth";
 import { mediaLocation } from "@/lib/uploads/naming";
+import { withPublicDataMutation } from "@/lib/cache/public-data";
 import ImageKit from "imagekit";
 import { authOptions } from "@/lib/auth-opt";
 import { authFailure, assertSameOrigin } from "@/lib/auth/request";
@@ -68,9 +69,12 @@ async function updateAvatar(req: Request, remove: boolean) {
         uploaded = file.fileId;
         await queueAvatarCleanup(file.fileId, session.user.id);
         writeAttempted = true;
-        const result = await User.updateOne(
-          { _id: session.user.id },
-          { $set: { image: file.url, imageFileId: file.fileId } },
+        const result = await withPublicDataMutation(async () =>
+          User.updateOne(
+            { _id: session.user.id },
+            { $set: { image: file.url, imageFileId: file.fileId } },
+            { maxTimeMS: 10000 },
+          ),
         );
         if (!result.matchedCount) throw Error("Account no longer exists");
         try {
@@ -79,9 +83,12 @@ async function updateAvatar(req: Request, remove: boolean) {
           console.error("Profile photo cleanup metadata will retry later");
         }
       } else {
-        await User.updateOne(
-          { _id: session.user.id },
-          { $unset: { image: 1, imageFileId: 1 } },
+        await withPublicDataMutation(async () =>
+          User.updateOne(
+            { _id: session.user.id },
+            { $unset: { image: 1, imageFileId: 1 } },
+            { maxTimeMS: 10000 },
+          ),
         );
       }
       after(async () => {
