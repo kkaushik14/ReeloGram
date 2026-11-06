@@ -44,3 +44,6 @@ next-env.d.ts
 /.next-seo/
 
 /.next-redis/
+
+# Unpublished release-note drafts; never served or committed.
+/.release-notes/

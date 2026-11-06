@@ -1,11 +1,15 @@
 {
   "name": "my-app",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "prebuild": "node scripts/update-email-blocklist.mjs --fallback",
+    "prebuild": "npm run version:check && node scripts/update-email-blocklist.mjs --fallback",
+    "pretest": "npm run version:check",
+    "version:check": "node scripts/release/check.mjs",
+    "release:notes": "node scripts/release/notes.mjs",
+    "version": "npm run version:check && npm run release:notes",
     "email:update-blocklist": "node scripts/update-email-blocklist.mjs",
     "test:daily-blocklist": "node --experimental-strip-types scripts/test-daily-blocklist.mjs",
     "build": "next build",

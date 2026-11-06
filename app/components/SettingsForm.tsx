@@ -2,13 +2,13 @@
 import FlashMessage from "./FlashNotification";
 import { useState } from "react";
 import Link from "next/link";
-import { Sun, Moon, Play, ShieldCheck, Check } from "lucide-react";
+import { Sun, Moon, Play, ShieldCheck, Check, Info } from "lucide-react";
 import AccountTabs from "./AccountTabs";
 import CookieSettingsButton from "./CookieSettingsButton";
 import { useBrowserPreferences } from "./useBrowserPreferences";
 import { FormSkeleton } from "./LoadingState";
 import type { BrowserPreferences, VideoQuality } from "@/lib/preferences";
-export default function SettingsForm() {
+export default function SettingsForm({ version }: { version: string }) {
   const { preferences, ready, save } = useBrowserPreferences();
   const [saved, setSaved] = useState("");
   function change(next: Partial<BrowserPreferences>) {
@@ -135,6 +135,15 @@ export default function SettingsForm() {
               Security emails about password resets and account changes remain
               enabled to help keep your account safe.
             </p>
+          </section>
+          <section className="account-panel" aria-label="About ReeloGram">
+            <div className="account-section-heading">
+              <Info size={22} aria-hidden="true" />
+              <div>
+                <h2>About ReeloGram</h2>
+                <p>Version {version}</p>
+              </div>
+            </div>
           </section>
         </>
       )}

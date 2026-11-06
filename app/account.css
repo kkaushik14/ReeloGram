@@ -34,14 +34,6 @@
   color: var(--color-accent);
   align-self: flex-start;
 }
-.auth-card input[type="date"] {
-  min-height: 52px;
-  display: block;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  color-scheme: light;
-}
 .auth-card input {
   font-size: 16px;
 }
@@ -90,9 +82,6 @@
   background: var(--color-support-subtle);
   color: var(--color-support-text);
   margin: 0 0 20px;
-}
-:root[data-theme="dark"] .auth-card input[type="date"] {
-  color-scheme: dark;
 }
 .sidebar {
   overflow: hidden !important;

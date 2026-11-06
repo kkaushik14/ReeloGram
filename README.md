@@ -5,6 +5,10 @@ Project date: 23 Jan 2026
 
 An existing Next.js App Router project with credential authentication, MongoDB models, ImageKit uploads, and video saving/feed APIs. The frontend follows the supplied soft monochrome design tokens, with light and dark appearance, video discovery, personal collections, upload progress, playback, sharing, and uploader-only editing and deletion.
 
+## Versioning
+
+The release version comes from `package.json` and appears in Settings → About ReeloGram. See [the versioning workflow](docs/versioning.md) for version increments, validation, annotated Git tags and local, unpublished release-note drafts.
+
 ## Local setup
 
 Use Node.js 24 LTS (Node 22.18+ is needed for the test runner).

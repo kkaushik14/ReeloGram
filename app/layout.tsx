@@ -14,6 +14,7 @@ import AppShell from "./components/AppShell";
 import CookieConsent from "./components/CookieConsent";
 import "./consent.css";
 import "./profile-settings.css";
+import "./date-input.css";
 import "./flash.css";
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),

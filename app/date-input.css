@@ -1,0 +1,41 @@
+/* Keep native date selection without iOS's intrinsic button sizing/alignment. */
+:is(.auth-card, .account-fields, .account-verification) input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 52px;
+  min-height: 52px;
+  padding: 12px 14px;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  color-scheme: light;
+}
+
+:is(.auth-card, .account-fields, .account-verification)
+  input[type="date"]::-webkit-date-and-time-value {
+  min-height: 24px;
+  text-align: left;
+}
+
+:is(.auth-card, .account-fields, .account-verification)
+  input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
+  min-width: 0;
+}
+
+:root[data-theme="dark"]
+  :is(.auth-card, .account-fields, .account-verification)
+  input[type="date"] {
+  color-scheme: dark;
+}
+
+.auth-card .form-stack,
+.auth-card .form-stack > label,
+.account-fields > label {
+  min-width: 0;
+}
