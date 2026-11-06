@@ -11,7 +11,10 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { encode } from "next-auth/jwt";
 import { redisClient } from "../lib/redis/client.ts";
-import { withPublicDataMutation } from "../lib/cache/public-data.ts";
+import {
+  withPublicDataMutation,
+  publicCacheKeys,
+} from "../lib/cache/public-data.ts";
 const require = createRequire(import.meta.url);
 require("@next/env").loadEnvConfig(process.cwd());
 process.env.REELOGRAM_REDIS_NAMESPACE = `route-test-${randomUUID()}`;
@@ -56,16 +59,14 @@ try {
   const owner = new mongoose.Types.ObjectId(),
     id = new mongoose.Types.ObjectId(),
     hero = new mongoose.Types.ObjectId();
-  await db
-    .collection("users")
-    .insertOne({
-      _id: owner,
-      email: "redis-routes@example.invalid",
-      password: "not-used",
-      dateOfBirth: new Date("1990-01-01"),
-      emailVerifiedAt: new Date(),
-      sessionVersion: 0,
-    });
+  await db.collection("users").insertOne({
+    _id: owner,
+    email: "redis-routes@example.invalid",
+    password: "not-used",
+    dateOfBirth: new Date("1990-01-01"),
+    emailVerifiedAt: new Date(),
+    sessionVersion: 0,
+  });
   const document = {
     description: "Synthetic Redis check",
     videoUrl: "https://ik.imagekit.io/test/legacy.mp4",
@@ -137,12 +138,56 @@ try {
     await new Promise((r) => setTimeout(r, 500));
   }
   assert.ok(ready, "Isolated Redis test server must start");
+  // Profile only this disposable database, never the production Atlas cluster.
+  const publicReads = () =>
+    db.collection("system.profile").countDocuments({
+      $or: [
+        { "command.find": { $in: ["videos", "users"] } },
+        { "command.aggregate": "videos" },
+      ],
+    });
+  await db.command({ profile: 2 });
   const first = await (await request("/api/videos?limit=5")).json();
+  await db.command({ profile: 0 });
+  const missReads = await publicReads();
+  assert.equal(
+    missReads,
+    3,
+    "Feed miss reads videos, count and public uploader",
+  );
   assert.equal(first.videos[0].title, "Before edit");
   await db
     .collection("videos")
     .updateOne({ _id: id }, { $set: { title: "Direct database edit" } });
+  await db.command({ profile: 2 });
   const hit = await (await request("/api/videos?limit=5")).json();
+  await db.command({ profile: 0 });
+  assert.equal(
+    await publicReads(),
+    missReads,
+    "Feed hit executes zero MongoDB reads",
+  );
+  await client.command(["DEL", publicCacheKeys(client, "showcase")[2]]);
+  const beforeShowcase = await publicReads();
+  await db.command({ profile: 2 });
+  await request("/api/showcase");
+  await db.command({ profile: 0 });
+  assert.equal(
+    await publicReads(),
+    beforeShowcase + 1,
+    "Showcase miss executes one MongoDB read",
+  );
+  await db.command({ profile: 2 });
+  await request("/api/showcase");
+  await db.command({ profile: 0 });
+  assert.equal(
+    await publicReads(),
+    beforeShowcase + 1,
+    "Showcase hit executes zero MongoDB reads",
+  );
+  console.log(
+    "MongoDB profiler: feed 3 → 0 reads; showcase 1 → 0 reads on Redis hits.",
+  );
   assert.equal(
     hit.videos[0].title,
     "Before edit",

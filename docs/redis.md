@@ -34,4 +34,8 @@ When Redis **is configured but unavailable**, rate-limited endpoints return a co
 
 ## Validation
 
+Vercel functions are pinned to `bom1` in `vercel.json`, alongside the existing Mumbai MongoDB and Upstash databases. Keep compute near both stores when changing hosting. See [Vercel's region configuration](https://vercel.com/docs/functions/configuring-functions/region). Redis itself does not eliminate cross-region latency.
+
+The Redis route suite also enables MongoDB profiling on its disposable database: a public feed miss performs three reads (videos, count, uploader), a showcase miss performs one, and cache hits perform zero. Production Atlas profiling is never enabled by the test.
+
 `npm test` checks configuration isolation, unsafe endpoints, redacted errors and cache exclusions. `npm run test:redis` exercises actual Upstash atomic counters, TTLs, stale loaders, overlapping writers, failed invalidation, malformed/oversized cache entries and owner-safe work leases. `npm run test:redis-routes` boots an isolated MongoDB and Next.js server to verify API cache hits, private-feed isolation, edit/profile invalidation, deletion visibility and rate limiting. Both Redis suites use random test namespaces and delete only their own keys. They never flush the database or modify production accounts/media.

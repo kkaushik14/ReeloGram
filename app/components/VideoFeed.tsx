@@ -605,7 +605,7 @@ export default function VideoFeed({
                     </button>
                     <div className="video-info">
                       <h3>
-                        <Link href={`/videos/${video.id}`}
+                        <Link href={`/videos/${video.id}`} prefetch={false}
                           onClick={(event) => {
                             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                             event.preventDefault();
