@@ -30,6 +30,24 @@ export async function middleware(req: NextRequest) {
       response.headers.set("X-Robots-Tag", "noindex, nofollow");
     return response;
   };
+  // These exact routes authenticate their own signed server-to-server requests.
+  // Customer cookies never authorize administration; no generic /api/admin bypass.
+  if (/^\/api\/admin\/v1\/[^/]+$/.test(pathname))
+    return finish(NextResponse.next());
+  // Malformed/unknown administration paths never fall through to customer auth.
+  if (pathname === "/api/admin" || pathname.startsWith("/api/admin/"))
+    return finish(
+      NextResponse.json(
+        { error: "Not found" },
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+          },
+        },
+      ),
+    );
   const legacyVideo = req.nextUrl.searchParams.get("video");
   if (
     (pathname === "/" || pathname === "/reels") &&

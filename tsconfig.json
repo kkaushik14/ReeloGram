@@ -25,5 +25,5 @@
   },
   // kisi bhi tarah ka agar .ts file aaye toh unse definition uthani hai....
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next-e2e", ".next-seo", ".next-redis"]
+  "exclude": ["node_modules", ".next-e2e", ".next-seo", ".next-redis", ".next-admin"]
 }
