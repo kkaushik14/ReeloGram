@@ -11,7 +11,7 @@ The release version comes from `package.json` and appears in Settings → About 
 
 ## Read-only administration
 
-The optional [Super Admin adapter](docs/admin-integration.md) exposes signed, replay-protected account/video/notification summaries. It is disabled by default, uses independent server credentials, and advertises no write capabilities. Run `npm run test:admin` against its disposable test environment before enabling a connection.
+The optional [Super Admin adapter](docs/admin-integration.md) exposes signed, replay-protected account/video/notification summaries. It is disabled by default, uses independent server credentials, and advertises no write capabilities by default. Optional moderation uses a separate credential and explicit allowlist; see the [Super Admin actions handoff](docs/super-admin-actions-handoff.md). Run `npm run test:admin` against its disposable test environment before enabling a connection.
 
 ## Local setup
 

@@ -4,7 +4,11 @@ import { mediaLocation } from "@/lib/uploads/naming";
 import { withPublicDataMutation } from "@/lib/cache/public-data";
 import ImageKit from "imagekit";
 import { authOptions } from "@/lib/auth-opt";
-import { authFailure, assertSameOrigin } from "@/lib/auth/request";
+import {
+  authFailure,
+  assertSameOrigin,
+  AuthRequestError,
+} from "@/lib/auth/request";
 import { readAvatar } from "@/lib/account/avatar";
 import {
   drainAvatarCleanup,
@@ -71,25 +75,34 @@ async function updateAvatar(req: Request, remove: boolean) {
         writeAttempted = true;
         const result = await withPublicDataMutation(async () =>
           User.updateOne(
-            { _id: session.user.id },
+            { _id: session.user.id, suspended: { $ne: true } },
             { $set: { image: file.url, imageFileId: file.fileId } },
             { maxTimeMS: 10000 },
           ),
         );
-        if (!result.matchedCount) throw Error("Account no longer exists");
+        if (!result.matchedCount)
+          throw new AuthRequestError(
+            "This account cannot be updated right now.",
+            403,
+          );
         try {
           await keepAvatar(file.fileId);
         } catch {
           console.error("Profile photo cleanup metadata will retry later");
         }
       } else {
-        await withPublicDataMutation(async () =>
+        const result = await withPublicDataMutation(async () =>
           User.updateOne(
-            { _id: session.user.id },
+            { _id: session.user.id, suspended: { $ne: true } },
             { $unset: { image: 1, imageFileId: 1 } },
             { maxTimeMS: 10000 },
           ),
         );
+        if (!result.matchedCount)
+          throw new AuthRequestError(
+            "This account cannot be updated right now.",
+            403,
+          );
       }
       after(async () => {
         try {

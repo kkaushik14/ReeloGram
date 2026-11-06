@@ -50,6 +50,7 @@ export const authOptions: NextAuthOptions = {
             const user = await User.findOneAndUpdate(
               {
                 email: completionEmail,
+                suspended: { $ne: true },
                 "signInGrant.digest": digest,
                 "signInGrant.expiresAt": { $gt: new Date() },
               },
@@ -78,7 +79,9 @@ export const authOptions: NextAuthOptions = {
               ),
             ),
           );
-          const user = await User.findOne({ email: parsed.email });
+          const user = await User.findOne({ email: parsed.email }).select(
+            "+suspended",
+          );
 
           if (!user) {
             await bcrypt.compare(parsed.password, dummyHash);
@@ -90,7 +93,7 @@ export const authOptions: NextAuthOptions = {
             user.password,
           );
 
-          if (!isMatched) {
+          if (!isMatched || user.suspended === true) {
             return null;
           }
 
@@ -131,11 +134,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid session");
         const current = await User.findById(token.id)
           .select(
-            "sessionVersion name image email +emailVerifiedAt +dateOfBirth +parent",
+            "sessionVersion name image email +emailVerifiedAt +dateOfBirth +parent +suspended",
           )
           .lean<{
             _id: unknown;
             sessionVersion?: number;
+            suspended?: boolean;
             name?: string;
             image?: string;
             email: string;
@@ -145,6 +149,7 @@ export const authOptions: NextAuthOptions = {
           }>();
         if (
           !current ||
+          current.suspended === true ||
           (current.sessionVersion ?? 0) !== (token.sessionVersion ?? 0)
         )
           throw new Error("Session has ended");
@@ -159,6 +164,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.sessionVersion = token.sessionVersion ?? 0;
         session.user.emailVerified = token.emailVerified === true;
         session.user.profileComplete = token.profileComplete === true;
         session.user.parentRequired = token.parentRequired === true;

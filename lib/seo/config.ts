@@ -28,6 +28,7 @@ export const validVideoId = (id: string) => /^[a-f0-9]{24}$/i.test(id);
 
 /** Legacy feed records have no placement; everything else must explicitly be public. */
 export const PUBLIC_VIDEO_FILTER = {
+  hidden: { $ne: true },
   deletionPending: { $ne: true },
   $or: [{ placement: "feed" }, { placement: { $exists: false } }],
 };

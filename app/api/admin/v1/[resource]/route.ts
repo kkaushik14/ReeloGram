@@ -1,5 +1,7 @@
+import { enabledActions } from "@/lib/admin/actions/config";
 import {
   ADMIN_CAPABILITIES,
+  adminConfiguration,
   ADMIN_RESOURCES,
   AdminRequestError,
   type AdminResource,
@@ -28,7 +30,10 @@ export async function GET(
         ? {
             projectId: identity.projectId,
             version: "1",
-            capabilities: ADMIN_CAPABILITIES,
+            capabilities: [
+              ...ADMIN_CAPABILITIES,
+              ...enabledActions(adminConfiguration()),
+            ],
           }
         : resource === "accounts"
           ? await readAccounts()

@@ -7,6 +7,8 @@ export const VIDEO_DIMENSION = {
 } as const;
 
 export interface InterFVideo {
+  hidden?: boolean;
+  moderationRevision?: number;
   placement?: "feed" | "hero" | "archived";
   source?: {
     provider: VideoSource;
@@ -36,6 +38,8 @@ export interface InterFVideo {
 
 const videoSchema = new Schema<InterFVideo>(
   {
+    hidden: { type: Boolean, default: false },
+    moderationRevision: { type: Number, default: 0, select: false },
     placement: {
       type: String,
       enum: ["feed", "hero", "archived"],

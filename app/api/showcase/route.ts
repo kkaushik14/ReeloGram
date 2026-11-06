@@ -13,6 +13,7 @@ export async function GET(req: Request) {
       await connectToDatabase();
       const records = await Video.find({
         placement: "hero",
+        hidden: { $ne: true },
         deletionPending: { $ne: true },
       })
         .sort({ createdAt: -1 })

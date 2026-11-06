@@ -1,6 +1,6 @@
-# Read-only Super Admin integration
+# Super Admin integration
 
-The resource API remains **v1**, with **request-signing protocol v2**. Old signatures are deliberately rejected; upgrade the receiving adapter and the Super Admin connector together before enabling access. Application release versions are independent of both. The adapter defaults to disabled, ignores customer sessions, and exposes no write operations. Installing code does not provision credentials or enable production.
+The resource API remains **v1**, with **request-signing protocol v2**. Old signatures are deliberately rejected; upgrade the receiving adapter and the Super Admin connector together before enabling access. Application release versions are independent of both. The adapter defaults to disabled, ignores customer sessions, and grants read credentials no write operations. Optional actions are separately disabled and require the [actions handoff](super-admin-actions-handoff.md). Installing code does not provision credentials or enable production.
 
 ## Configuration
 
@@ -35,18 +35,18 @@ For a suspected compromise, do **not** configure an overlap: remove the old key 
 
 ## Endpoints and limits
 
-| GET endpoint             | Response                                                                                        |
-| ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `/api/admin/v1/manifest` | `projectId`, API `version: "1"`, and exactly `accounts.read`, `videos.read`, `jobs.read`        |
-| `/api/admin/v1/accounts` | Account ID, display name, verification/profile/parent-pending status and publishing eligibility |
-| `/api/admin/v1/videos`   | Video ID, title, placement summary and published/archived/deletion-pending status               |
-| `/api/admin/v1/jobs`     | Unexpired pending/sending/failed notification outbox IDs, status and attempt count              |
+| GET endpoint             | Response                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `/api/admin/v1/manifest` | `projectId`, API `version: "1"`, and `accounts.read`, `videos.read`, `jobs.read` (plus explicitly enabled actions) |
+| `/api/admin/v1/accounts` | Account ID, display name, verification/profile/parent-pending status and publishing eligibility                    |
+| `/api/admin/v1/videos`   | Video ID, title, placement summary and published/archived/deletion-pending status                                  |
+| `/api/admin/v1/jobs`     | Unexpired pending/sending/failed notification outbox IDs, status and attempt count                                 |
 
-Lists return `{items:[{id,label,detail,status}],truncated:boolean}`, at most 100 records in descending ID order, with database projections and a three-second query timeout. `truncated` indicates additional records, not a full count. Super Admin accepts but does not yet display the flag. Search, filters, cursors and full operational health remain future extensions. Query strings are rejected, never silently ignored.
+Lists return `{items:[{id,label,detail,status}],truncated:boolean}`; accounts/videos additionally return numeric `revision` (legacy records default to 0) and can report `suspended`/`hidden` respectively. Lists contain at most 100 records in descending ID order, with database projections and a three-second query timeout. `truncated` indicates additional records, not a full count. Super Admin accepts but does not yet display the flag. Search, filters, cursors and full operational health remain future extensions. Query strings are rejected, never silently ignored.
 
 No email addresses, exact DOB, parent contacts, passwords, session/reset/confirmation grants, media URLs, ImageKit IDs, uploader details, job recipients/subjects/bodies or provider credentials appear in responses. The jobs endpoint only reads notification outbox summaries; it never sends, claims or retries jobs. User-supplied names/titles are plain text; consumers must not render them as HTML.
 
-POST/PATCH/PUT/DELETE, HEAD and OPTIONS all return generic 404 without `Allow`. Unknown admin paths also return 404. No write capabilities, actions, suspension, moderation, deletion, job retries or blocklist refresh exist. Future write integration requires a separately designed permission/owner-reauthorization flow; a read credential must not silently gain write powers.
+On the read endpoints, POST/PATCH/PUT/DELETE, HEAD and OPTIONS return generic 404 without `Allow`. Unknown admin paths also return 404. Separate action and receipt endpoints are described in the [actions handoff](super-admin-actions-handoff.md); read credentials cannot call them. There is no permanent deletion, job retry, bulk action or blocklist refresh API.
 
 ## Request signing
 
@@ -99,4 +99,4 @@ npm run test:admin -- --production --connector
 
 The HTTP suite uses disposable MongoDB and isolated local Next servers, synthetic credentials/data and test-only Redis faults. It covers private-field exclusion, unauthorized/cookie/bearer access, tampered identities/URLs/methods/bodies, legacy rejection, concurrent/cross-resource/cross-key/restart replay, credential expiry/removal, shared throttling, safe audit output and Redis/Mongo outage/recovery. It sends no email, modifies no real media and does not connect to production databases. Test ports are temporary; normal development stays on port 3000. Stop the dev server during a `.next` production build, then restart it.
 
-Live Google login, HTTPS enrollment and production provisioning remain separate checks. Release-note drafts stay in ignored `.release-notes`. Do not push, tag, deploy or publish without a later instruction.
+Live Google login, HTTPS enrollment and production provisioning remain separate checks. Release-note drafts stay in ignored `.release-notes`. Publishing still requires user authorization; release-note drafts are not published with code or tags.

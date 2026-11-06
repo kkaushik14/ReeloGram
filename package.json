@@ -1,6 +1,6 @@
 {
   "name": "my-app",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -31,7 +31,8 @@
     "test:redis-routes": "node --experimental-strip-types scripts/test-redis-routes.mjs",
     "test:redis-outage": "node --experimental-strip-types scripts/test-redis-routes.mjs --faults",
     "test:admin": "node --experimental-strip-types scripts/test-admin.mjs",
-    "cache:invalidate": "node --experimental-strip-types scripts/invalidate-public-cache.mjs"
+    "cache:invalidate": "node --experimental-strip-types scripts/invalidate-public-cache.mjs",
+    "test:admin-actions": "node --experimental-strip-types scripts/test-admin-actions.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

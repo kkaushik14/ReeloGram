@@ -71,6 +71,7 @@ async function start(overrides = {}, fault = false) {
         VERCEL_ENV: "",
         REELOGRAM_REDIS_DISABLED: "1",
         REELOGRAM_ADMIN_ENABLED: "1",
+        REELOGRAM_ADMIN_ACTIONS_ENABLED: "0",
         REELOGRAM_ADMIN_PROJECT_ID: projectId,
         REELOGRAM_ADMIN_SECRET: secret,
         REELOGRAM_ADMIN_KEY_ID: keyId,
@@ -248,6 +249,7 @@ try {
         "detail",
         "id",
         "label",
+        ...(data === jobList ? [] : ["revision"]),
         "status",
       ]);
     assert.ok(
@@ -506,17 +508,15 @@ try {
   await request("manifest", { keyId: previousKeyId, secret: previousSecret });
   await request("manifest", { keyId, secret: previousSecret, status: 404 });
   const rotationWindow = Math.floor(Date.now() / 60000);
-  await db
-    .collection("auth_rate_limits")
-    .updateOne(
-      {
-        _id: createHmac("sha256", authSecret)
-          .update(`admin-read:account:${rotationWindow}:${projectId}`)
-          .digest("hex"),
-      },
-      { $set: { count: 120, expiresAt: new Date(Date.now() + 120000) } },
-      { upsert: true },
-    );
+  await db.collection("auth_rate_limits").updateOne(
+    {
+      _id: createHmac("sha256", authSecret)
+        .update(`admin-read:account:${rotationWindow}:${projectId}`)
+        .digest("hex"),
+    },
+    { $set: { count: 120, expiresAt: new Date(Date.now() + 120000) } },
+    { upsert: true },
+  );
   await request("manifest", {
     keyId: previousKeyId,
     secret: previousSecret,

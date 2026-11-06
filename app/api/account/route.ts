@@ -115,7 +115,7 @@ export async function PATCH(req: Request) {
     if (details.dateOfBirth !== undefined) missing.push({ dateOfBirth: null });
     const user = await withPublicDataMutation(async () =>
       User.findOneAndUpdate(
-        { _id: session.user.id, $and: missing },
+        { _id: session.user.id, suspended: { $ne: true }, $and: missing },
         {
           $set: {
             ...details,
@@ -134,7 +134,10 @@ export async function PATCH(req: Request) {
       ).select("name email image +dateOfBirth +emailVerifiedAt +parent"),
     );
     if (!user) {
-      const exists = await User.exists({ _id: session.user.id });
+      const exists = await User.exists({
+        _id: session.user.id,
+        suspended: { $ne: true },
+      });
       return Response.json(
         {
           error: exists

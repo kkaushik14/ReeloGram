@@ -2,6 +2,9 @@ import mongoose, { Schema, model, models } from "mongoose";
 import bcrypt from "bcryptjs";
 
 export interface InterFUser {
+  suspended?: boolean;
+  moderationRevision?: number;
+  publishingRevision?: number;
   name?: string;
   dateOfBirth?: Date;
   sessionVersion?: number;
@@ -27,6 +30,9 @@ export interface InterFUser {
 
 const userSchema = new Schema<InterFUser>(
   {
+    suspended: { type: Boolean, default: false, select: false },
+    moderationRevision: { type: Number, default: 0, select: false },
+    publishingRevision: { type: Number, default: 0, select: false },
     name: { type: String, trim: true, maxlength: 80 },
     image: { type: String },
     imageFileId: { type: String, select: false },

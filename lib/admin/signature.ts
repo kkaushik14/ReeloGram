@@ -23,11 +23,12 @@ export function adminSigningPayload(input: {
   time: string;
   nonce: string;
   body: string;
+  scope?: "read" | "actions";
 }) {
   return JSON.stringify([
     "reelogram-admin",
     ADMIN_SIGNATURE_VERSION,
-    "read",
+    input.scope ?? "read",
     input.projectId,
     input.environment,
     input.audience,
@@ -45,15 +46,40 @@ export function verifyAdminRequest(
   configuration: AdminConfiguration,
   now = Date.now(),
 ): VerifiedAdminRequest {
+  return verifySignedRequest(
+    request,
+    configuration,
+    {
+      method: "GET",
+      path: `/api/admin/v1/${resource}`,
+      scope: "read",
+      body: "",
+    },
+    now,
+  );
+}
+
+export function verifySignedRequest(
+  request: Request,
+  configuration: AdminConfiguration,
+  expectedRequest: {
+    method: "GET" | "POST";
+    path: string;
+    scope: "read" | "actions";
+    body: string;
+  },
+  now = Date.now(),
+): VerifiedAdminRequest {
   const url = new URL(request.url);
   if (
-    request.method !== "GET" ||
-    url.pathname !== `/api/admin/v1/${resource}` ||
+    request.method !== expectedRequest.method ||
+    url.pathname !== expectedRequest.path ||
     url.search ||
-    request.body ||
-    (request.headers.get("content-length") &&
-      request.headers.get("content-length") !== "0") ||
-    request.headers.has("transfer-encoding")
+    (expectedRequest.method === "GET" &&
+      (request.body ||
+        (request.headers.get("content-length") &&
+          request.headers.get("content-length") !== "0") ||
+        request.headers.has("transfer-encoding")))
   )
     adminNotFound();
   const h = request.headers;
@@ -69,7 +95,7 @@ export function verifyAdminRequest(
   );
   if (
     h.get("x-admin-version") !== ADMIN_SIGNATURE_VERSION ||
-    h.get("x-admin-scope") !== "read" ||
+    h.get("x-admin-scope") !== expectedRequest.scope ||
     projectId !== configuration.projectId ||
     environment !== configuration.environment ||
     audience !== configuration.audience ||
@@ -93,7 +119,8 @@ export function verifyAdminRequest(
         path: url.pathname + url.search,
         time,
         nonce,
-        body: "",
+        body: expectedRequest.body,
+        scope: expectedRequest.scope,
       }),
     )
     .digest();

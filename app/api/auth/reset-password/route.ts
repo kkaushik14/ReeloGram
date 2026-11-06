@@ -25,6 +25,7 @@ export async function POST(request: Request) {
     const digest = createHash("sha256").update(body.token).digest("hex");
     await limitAuth("reset", digest, request.headers);
     const user = await User.findOne({
+      suspended: { $ne: true },
       "passwordReset.digest": digest,
       "passwordReset.expiresAt": { $gt: new Date() },
     }).select("password");
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
     const updated = await User.findOneAndUpdate(
       {
         _id: user._id,
+        suspended: { $ne: true },
         "passwordReset.digest": digest,
         "passwordReset.expiresAt": { $gt: new Date() },
       },

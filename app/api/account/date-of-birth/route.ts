@@ -39,6 +39,7 @@ export async function PATCH(req: Request) {
     const updated = await User.updateOne(
       {
         _id: session.user.id,
+        suspended: { $ne: true },
         dateOfBirth: previous,
         $or: [
           { "parent.verifiedAt": null },

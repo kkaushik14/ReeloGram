@@ -1,3 +1,5 @@
+import { withPublishingAccount } from "@/lib/account/publishing-guard";
+import { AuthRequestError } from "@/lib/auth/request";
 import { ownsUpload } from "@/lib/uploads/authorization";
 import { namedUpload } from "@/lib/uploads/naming";
 import { readFeed } from "@/lib/cache/feed";
@@ -53,7 +55,14 @@ export async function GET(req: Request) {
       await connectToDatabase();
       const direction = query.sort === "oldest" ? 1 : -1;
       const comparison = direction === 1 ? "$gt" : "$lt";
-      const conditions: FilterQuery<InterFVideo>[] = [PUBLIC_VIDEO_FILTER];
+      const conditions: FilterQuery<InterFVideo>[] = [
+        mine
+          ? {
+              deletionPending: { $ne: true },
+              $or: [{ placement: "feed" }, { placement: { $exists: false } }],
+            }
+          : PUBLIC_VIDEO_FILTER,
+      ];
       if (mine) conditions.push({ uploadedBy: session!.user.id });
       const providers: Record<string, string> = {
         pexels: "Pexels",
@@ -236,23 +245,29 @@ export async function POST(req: Request) {
         try {
           await connectToDatabase();
           await Video.init();
-          const video = await withPublicDataMutation(async () => {
-            const document = new Video({
-              ...input,
-              // New grants reserve the actual post ID in the signed filename.
-              // Legacy owned uploads still receive a normal generated ObjectId.
-              _id: namedUpload(videoFile.filePath, session.user.id, "video")
-                ?.videoId,
-              uploadedBy: session.user.id,
-              videoUrl,
-              thumbNailUrl: thumbnail.url,
-              transformatioon: {
-                width: videoFile.width || VIDEO_DIMENSION.width,
-                height: videoFile.height || VIDEO_DIMENSION.height,
+          const video = await withPublicDataMutation(() =>
+            withPublishingAccount(
+              session.user.id,
+              session.user.sessionVersion,
+              async (transaction) => {
+                const document = new Video({
+                  ...input,
+                  // New grants reserve the actual post ID in the signed filename.
+                  // Legacy owned uploads still receive a normal generated ObjectId.
+                  _id: namedUpload(videoFile.filePath, session.user.id, "video")
+                    ?.videoId,
+                  uploadedBy: session.user.id,
+                  videoUrl,
+                  thumbNailUrl: thumbnail.url,
+                  transformatioon: {
+                    width: videoFile.width || VIDEO_DIMENSION.width,
+                    height: videoFile.height || VIDEO_DIMENSION.height,
+                  },
+                });
+                return document.save({ session: transaction, maxTimeMS: 5000 });
               },
-            });
-            return document.save({ maxTimeMS: 10000 });
-          });
+            ),
+          );
           const presented = (await presentVideos([video]))[0];
           after(async () => {
             await prepareVideoPlayback(videoUrl, presented.transformation);
@@ -277,6 +292,7 @@ export async function POST(req: Request) {
           });
           return NextResponse.json(presented, { status: 201, headers });
         } catch (error) {
+          if (error instanceof AuthRequestError) return authFailure(error);
           const protection = rateLimitResponse(error);
           if (protection) return protection;
           if (

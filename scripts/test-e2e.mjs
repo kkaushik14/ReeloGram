@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { writeFile, rm } from "node:fs/promises";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import ImageKit from "imagekit";
 import { startEmailTestServer, emailBody } from "./email-test-server.mjs";
 import { fixtures } from "./e2e-fixtures.mjs";
@@ -186,8 +186,8 @@ try {
     JSON.stringify({ extends: "./tsconfig.json" }),
   );
   if (!configuredDatabase) {
-    database = await MongoMemoryServer.create({
-      instance: { dbName: "reelogram_e2e" },
+    database = await MongoMemoryReplSet.create({
+      replSet: { count: 1, dbName: "reelogram_e2e" },
       binary: { downloadDir: join(tmpdir(), "reelogram-mongodb-binaries") },
     });
   }

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
         const token = randomBytes(32).toString("base64url");
         const digest = createHash("sha256").update(token).digest("hex");
         const user = await User.findOneAndUpdate(
-          { email },
+          { email, suspended: { $ne: true } },
           {
             $set: {
               passwordReset: {

@@ -32,7 +32,10 @@ export async function middleware(req: NextRequest) {
   };
   // These exact routes authenticate their own signed server-to-server requests.
   // Customer cookies never authorize administration; no generic /api/admin bypass.
-  if (/^\/api\/admin\/v1\/[^/]+$/.test(pathname))
+  if (
+    /^\/api\/admin\/v1\/[^/]+$/.test(pathname) ||
+    /^\/api\/admin\/v1\/actions\/[a-f0-9-]{36}$/.test(pathname)
+  )
     return finish(NextResponse.next());
   // Malformed/unknown administration paths never fall through to customer auth.
   if (pathname === "/api/admin" || pathname.startsWith("/api/admin/"))
