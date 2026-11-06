@@ -103,9 +103,57 @@ npm run build
 npm run typecheck
 npm run test:admin -- --production
 npm run test:admin-actions -- --production
+# Optional: use the neighboring Super Admin checkout's actual pure signer.
+# No controller credentials, sessions or database are loaded by this test.
+npm run test:admin-actions -- --connector
 npm run test:e2e
 ```
 
 Integration tests use disposable MongoDB replica sets, synthetic credentials and isolated servers. They do not moderate production users/videos. Stop the normal dev server before builds and restore it on port 3000 afterward. Do not run isolated suites concurrently because they share generated test configuration.
 
 Deploying this code alone leaves existing production access read-only. Release notes stay local and unpublished. Rollback needs care **after any moderation has been applied**: v1.1.0 does not enforce these flags. Prefer disabling action dispatch while retaining this enforcement code; do not roll back to a version that silently re-enables suspended accounts or hidden videos. Restoring an account/video is a deliberate audited command, not a deployment side effect.
+
+## Production activation handoff — 6 November 2026
+
+ReeloGram's five production action settings are provisioned in Vercel, with
+`REELOGRAM_ADMIN_ACTIONS_ENABLED=0`. The new 256-bit write secret is stored as a
+Vercel Secret. The owner is pinned to the existing verified, active Google owner
+record in Super Admin's production database, obtained with a read-only query.
+Existing read credentials are unchanged.
+
+The matching values are in the **private, Git-ignored, owner-readable** file
+`ReeloGram/.env.admin-actions.production`. It is a production handoff, not a
+development env file. Do not print its contents, commit it, copy the values into
+documentation, or replace it with independently generated mismatching keys.
+The Super Admin chat may read it and provision only its own environment:
+
+| ReeloGram handoff key | Matching Super Admin key |
+| --- | --- |
+| `REELOGRAM_ADMIN_WRITE_KEY_ID` | `SUPERADMIN_PROJECT_REELOGRAM_WRITE_KEY_ID` |
+| `REELOGRAM_ADMIN_WRITE_SECRET` | `SUPERADMIN_PROJECT_REELOGRAM_WRITE_SECRET` |
+| `REELOGRAM_ADMIN_OWNER_ID` | `SUPERADMIN_PROJECT_REELOGRAM_OWNER_ID` |
+| `REELOGRAM_ADMIN_ACTIONS` | `SUPERADMIN_PROJECT_REELOGRAM_ACTIONS` |
+
+Keep `SUPERADMIN_PROJECT_REELOGRAM_ACTIONS_ENABLED=0` during this preparation.
+ReeloGram passed all 198 action integration checks using 45 requests signed by
+the actual Super Admin signer, synthetic credentials and disposable MongoDB.
+This confirms the wire contract and receiver behavior; it does not prove live
+Google reauthentication.
+
+**Remaining controller-side blocker:** after the user signed out and signed in
+again, the active production Google session still had no accepted `authenticatedAt`
+value. `googleAuthenticationTime()` currently maps both missing and stale
+`profile.auth_time` to zero. This observation does not distinguish those cases.
+The ordinary login requests the essential claim but does not set `max_age=0`;
+the command dialog's dedicated “Verify with Google” flow does. Verify that
+dedicated flow against Google and make it reachable while dispatch is disabled,
+so readiness can be tested before activation. Inspect only sanitized claim
+presence/freshness metadata, never raw tokens. Do not weaken freshness checks or
+replace the claim with session creation time, `iat`, or a browser timestamp.
+
+The Super Admin chat owns any authentication/UI changes and its production
+settings. This chat has not modified those files, records or settings. Once that
+chat confirms fresh verified Google authorization and matching configuration,
+return the rollout to this chat to enable/redeploy the ReeloGram receiver. Then
+the controller chat can enable its side and exercise reversible actions on
+disposable targets. Do not moderate real customer records for rollout tests.

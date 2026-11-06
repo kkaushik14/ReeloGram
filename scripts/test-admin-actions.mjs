@@ -7,6 +7,19 @@ import { actionServer } from "./testing/admin-action-server.mjs";
 import { executeAction } from "../lib/admin/actions/execute.ts";
 import { withPublishingAccount } from "../lib/account/publishing-guard.ts";
 import { readPublicData } from "../lib/cache/public-data.ts";
+// Optional compatibility check against the controller's pure signer. This imports
+// source only: no control-app environment, database, sessions or services.
+const connectorSigner = process.argv.includes("--connector")
+  ? (
+      await import(
+        new URL(
+          "../../Super Admin/lib/integrations/action-signature.ts",
+          import.meta.url,
+        ).href
+      )
+    ).signedActionHeaders
+  : null;
+let connectorChecks = 0;
 let h,
   checks = 0;
 const check = (a, b) => {
@@ -21,6 +34,30 @@ function signed(path, body = "", options = {}) {
     nonce = options.nonce || randomUUID();
   const key = scope === "read" ? h.config.readKey : h.config.writeKey,
     secret = scope === "read" ? h.config.readSecret : h.config.writeSecret;
+  const supportedActionPath =
+    (method === "POST" && path === "/api/admin/v1/actions") ||
+    (method === "GET" &&
+      /^\/api\/admin\/v1\/actions\/[a-f0-9-]{36}$/.test(path));
+  if (connectorSigner && scope === "actions" && supportedActionPath) {
+    connectorChecks++;
+    return {
+      ...connectorSigner(
+        {
+          projectId: h.config.projectId,
+          environment: "local",
+          audience: h.base,
+          keyId: key,
+        },
+        method,
+        path,
+        body,
+        secret,
+        time,
+        nonce,
+      ),
+      ...options.headers,
+    };
+  }
   const payload = JSON.stringify([
     "reelogram-admin",
     "2",
@@ -563,6 +600,15 @@ try {
   check((await send(action("videos.restore", video, 3))).status, "succeeded");
   await h.database.stop();
   await send(action("videos.hide", video, 4), { expected: 503 });
+  if (connectorSigner) {
+    assert(
+      connectorChecks > 30,
+      "The real controller signer must exercise the action flow",
+    );
+    console.log(
+      `Controller compatibility: ${connectorChecks} requests signed by the actual Super Admin signer with synthetic credentials.`,
+    );
+  }
   console.log(
     `PASS: ${checks} admin action checks: authorization, idempotency/concurrency, audit rollback, session revocation, publication races, public visibility/SEO, cache fencing, quotas and failure recovery.`,
   );
