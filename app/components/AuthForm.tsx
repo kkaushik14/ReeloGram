@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Aperture, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { parseProfile, parseEmail, passwordError } from "@/lib/auth/validation";
 import { PASSWORD_POLICY } from "@/lib/auth/password-policy";
+import PasswordStrength from "./auth/PasswordStrength";
 import { isUnder13 } from "@/lib/account/age";
 import ParentFields from "./ParentFields";
 import { useFlash } from "./FlashNotification";
@@ -305,7 +306,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                     }
                     placeholder={
                       step === "password"
-                        ? "At least 15 characters"
+                        ? `At least ${PASSWORD_POLICY.minimumCharacters} characters`
                         : "Enter your password"
                     }
                     required
@@ -315,7 +316,9 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                         : undefined
                     }
                     aria-describedby={
-                      step === "password" ? "password-help" : undefined
+                      step === "password"
+                        ? "password-help password-strength"
+                        : undefined
                     }
                     disabled={pending}
                     value={password}
@@ -335,6 +338,9 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
                   <small id="password-help">{PASSWORD_POLICY.help}</small>
                 )}
               </label>
+              {step === "password" && (
+                <PasswordStrength password={password} email={email} />
+              )}
               {step === "password" && (
                 <label>
                   Confirm password

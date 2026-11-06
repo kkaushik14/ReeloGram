@@ -52,7 +52,7 @@ test("account fields reject injection objects, control characters and impossible
   assert.ok(passwordError("short"));
   assert.ok(passwordError(" ".repeat(8)));
   assert.ok(passwordError("🔑".repeat(19)));
-  assert.equal(passwordError("use a long passphrase"), null);
+  assert.equal(passwordError("use a long passphrase 27!"), null);
   assert.equal(validResetToken({ $ne: "" }), false);
   assert.equal(validResetToken("x".repeat(43)), true);
 });

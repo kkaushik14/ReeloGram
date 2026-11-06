@@ -269,7 +269,13 @@ try {
     "failed",
   );
   check(await h.db.collection("videos").countDocuments({}), 1);
-  for (const password of ["short", "password123456789", "x".repeat(20)]) {
+  for (const password of [
+    "short",
+    "password123456789",
+    "x".repeat(20),
+    "Copper sails beyond winter1!",
+    "Copper sails beyond winter12",
+  ]) {
     await call("/api/auth/register", {
       auth: null,
       body: {
@@ -286,6 +292,54 @@ try {
       status: 400,
     });
   }
+  const resetToken = randomBytes(32).toString("base64url");
+  const resetDigest = createHash("sha256").update(resetToken).digest("hex");
+  await h.db
+    .collection("users")
+    .updateOne(
+      { _id: new Types.ObjectId(other.id) },
+      {
+        $set: {
+          passwordReset: {
+            digest: resetDigest,
+            expiresAt: new Date(Date.now() + 60000),
+          },
+        },
+      },
+    );
+  await call("/api/auth/reset-password", {
+    auth: null,
+    body: { token: resetToken, password: "Ceda27!" },
+    status: 400,
+  });
+  check(
+    (
+      await h.db
+        .collection("users")
+        .findOne({ _id: new Types.ObjectId(other.id) })
+    ).passwordReset.digest,
+    resetDigest,
+  );
+  await call("/api/auth/reset-password", {
+    auth: null,
+    body: { token: resetToken, password: "Cedar27!" },
+  });
+  check(
+    await bcrypt.compare(
+      "Cedar27!",
+      (
+        await h.db
+          .collection("users")
+          .findOne({ _id: new Types.ObjectId(other.id) })
+      ).password,
+    ),
+    true,
+  );
+  await call("/api/auth/reset-password", {
+    auth: null,
+    body: { token: resetToken, password: "Birch28!" },
+    status: 400,
+  });
   console.log(
     `Staged upload HTTP regression passed: ${checks} checks; no real provider requests or production records.`,
   );

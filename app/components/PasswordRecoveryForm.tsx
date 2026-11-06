@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { passwordError, validResetToken } from "@/lib/auth/validation";
 import { PASSWORD_POLICY } from "@/lib/auth/password-policy";
+import PasswordStrength from "./auth/PasswordStrength";
 export default function PasswordRecoveryForm({
   reset = false,
 }: {
@@ -171,7 +172,7 @@ export default function PasswordRecoveryForm({
                         autoComplete="new-password"
                         required
                         minLength={PASSWORD_POLICY.minimumCharacters}
-                        aria-describedby="password-help"
+                        aria-describedby="password-help password-strength"
                         disabled={pending}
                         value={password}
                         onChange={(event) => setPassword(event.target.value)}
@@ -188,6 +189,7 @@ export default function PasswordRecoveryForm({
                     </span>
                     <small id="password-help">{PASSWORD_POLICY.help}</small>
                   </label>
+                  <PasswordStrength password={password} />
                   <label>
                     Confirm password
                     <input

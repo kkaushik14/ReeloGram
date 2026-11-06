@@ -1,9 +1,33 @@
 /** Shared by password creation/reset and their forms, never by existing-user login. */
 export const PASSWORD_POLICY = {
-  minimumCharacters: 15,
+  minimumCharacters: 8,
+  minimumNumbers: 2,
+  minimumSpecialCharacters: 1,
   maximumBytes: 72, // bcrypt must never silently truncate the supplied password.
-  help: "Use at least 15 characters. Several unrelated words work well. Avoid common passwords, repeating patterns and your email address.",
+  help: "Use at least 8 characters, including 2 numbers (0–9) and 1 special character. Spaces do not count as special characters. Avoid common passwords, repeating patterns and your email address.",
 } as const;
+
+export function passwordCounts(value: string) {
+  // Form input and direct API requests share the same definition of a character.
+  const bounded = value.slice(0, PASSWORD_POLICY.maximumBytes + 1);
+  return {
+    characters: [...bounded].length,
+    numbers: (bounded.match(/[0-9]/g) ?? []).length,
+    specialCharacters: (bounded.match(/[\p{P}\p{S}]/gu) ?? []).length,
+  };
+}
+
+/** Local feedback, not an entropy estimate or a guarantee against compromise. */
+export function passwordStrength(value: string, email?: string | null) {
+  if (passwordError(value, email)) return "Low" as const;
+  const counts = passwordCounts(value);
+  const extra = counts.characters - PASSWORD_POLICY.minimumCharacters;
+  const score =
+    (extra >= 8 ? 3 : extra >= 4 ? 2 : 0) +
+    (counts.numbers >= 3 ? 1 : 0) +
+    (counts.specialCharacters >= 2 ? 1 : 0);
+  return score >= 3 ? ("High" as const) : ("Moderate" as const);
+}
 
 const common = new Set([
   "password",
@@ -39,6 +63,11 @@ export function passwordError(
     return "This password is too long. Use up to 72 English letters, or fewer characters for other languages and emoji.";
   if ([...value].length < PASSWORD_POLICY.minimumCharacters)
     return `Use at least ${PASSWORD_POLICY.minimumCharacters} characters for your password.`;
+  const counts = passwordCounts(value);
+  if (counts.numbers < PASSWORD_POLICY.minimumNumbers)
+    return "Include at least 2 numbers (0–9) in your password.";
+  if (counts.specialCharacters < PASSWORD_POLICY.minimumSpecialCharacters)
+    return "Include at least 1 special character, such as !, @ or #. Spaces do not count.";
   const normalized = value.normalize("NFKC").toLowerCase();
   const compact = normalized.replace(/[^\p{L}\p{N}]/gu, "");
   if (!compact || /^(\d+)$/.test(compact) || /^(.{1,8})\1+$/u.test(compact))
